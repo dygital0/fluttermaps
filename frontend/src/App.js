@@ -68,16 +68,16 @@ const trafficIcon = new L.Icon({
 // };
 
 // Helper functions for traffic reporting
-const getReportTypeIconClass = (type) => {
+const getReportTypeIcon = (type) => {
     const icons = {
-        [TrafficEventTypes.TRAFFIC_JAM]: 'fas fa-car',
-        [TrafficEventTypes.ROAD_CLOSED]: 'fas fa-road',
-        [TrafficEventTypes.ACCIDENT]: 'fas fa-car-crash',
-        [TrafficEventTypes.CONSTRUCTION]: 'fas fa-cone', // Fixed
-        [TrafficEventTypes.HAZARD]: 'fas fa-exclamation-triangle',
-        [TrafficEventTypes.POLICE]: 'fas fa-shield-alt' // Fixed
+        [TrafficEventTypes.TRAFFIC_JAM]: '🚗',
+        [TrafficEventTypes.ROAD_CLOSED]: '🚧',
+        [TrafficEventTypes.ACCIDENT]: '⚠️',
+        [TrafficEventTypes.CONSTRUCTION]: '🏗️',
+        [TrafficEventTypes.HAZARD]: '🔺',
+        [TrafficEventTypes.POLICE]: '🚓'
     };
-    return icons[type] || 'fas fa-traffic-light';
+    return icons[type] || '🚦';
 };
 
 const getReportTypeLabel = (type) => {
@@ -470,9 +470,9 @@ function App() {
             [TrafficEventTypes.TRAFFIC_JAM]: 'fas fa-car',
             [TrafficEventTypes.ROAD_CLOSED]: 'fas fa-road',
             [TrafficEventTypes.ACCIDENT]: 'fas fa-car-crash',
-            [TrafficEventTypes.CONSTRUCTION]: 'fas fa-traffic-cone',
+            [TrafficEventTypes.CONSTRUCTION]: 'fas fa-cone',
             [TrafficEventTypes.HAZARD]: 'fas fa-exclamation-triangle',
-            [TrafficEventTypes.POLICE]: 'fas fa-police-car'
+            [TrafficEventTypes.POLICE]: 'fas fa-shield-alt'
         };
         return icons[type] || 'fas fa-traffic-light';
     };
