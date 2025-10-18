@@ -1,7 +1,8 @@
-// trafficService.js
-
 const TRAFFIC_REPORTS_KEY = 'butterfly_nav_traffic_reports';
-const REPORT_TTL = 30 * 60 * 1000; // 30 minutes
+const REPORT_TTL = 2 * 60 * 60 * 1000; // 2 hours
+const API_BASE = process.env.NODE_ENV === 'development' 
+  ? 'http://localhost:8888/.netlify/functions' 
+  : '/.netlify/functions';
 
 export const TrafficEventTypes = {
   TRAFFIC_JAM: 'traffic_jam',
@@ -12,40 +13,89 @@ export const TrafficEventTypes = {
   POLICE: 'police'
 };
 
-// Store reports in localStorage (simple solution for POC)
+// Submit report to shared service
 export const submitTrafficReport = async (report) => {
   try {
-    const reports = getStoredReports();
-    const newReport = {
+    // First try to submit to shared service
+    const response = await fetch(`${API_BASE}/traffic-reports`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...report,
+        deviceId: getDeviceId()
+      }),
+    });
+
+    if (response.ok) {
+      const sharedReport = await response.json();
+      
+      // Also store locally for offline capability
+      storeReportLocally(sharedReport);
+      
+      return sharedReport;
+    } else {
+      throw new Error('Failed to submit to shared service');
+    }
+  } catch (error) {
+    console.warn('Shared service unavailable, storing locally:', error);
+    
+    // Fallback to local storage
+    const localReport = {
+      ...report,
       id: generateId(),
       timestamp: Date.now(),
-      route: report.route, // { start: 'lat,lon', end: 'lat,lon' }
-      location: report.location, // { lat, lon }
-      type: report.type,
-      severity: report.severity || 'medium',
-      description: report.description,
-      deviceId: getDeviceId()
+      deviceId: getDeviceId(),
+      localOnly: true
     };
     
-    reports.push(newReport);
-    localStorage.setItem(TRAFFIC_REPORTS_KEY, JSON.stringify(reports));
-    
-    // In a real implementation, you'd send to a server
-    // await sendToServer(newReport);
-    
-    return newReport;
-  } catch (error) {
-    console.error('Error submitting traffic report:', error);
-    throw error;
+    storeReportLocally(localReport);
+    return localReport;
   }
 };
 
-// Get relevant reports for current route
-export const getTrafficReportsForRoute = (currentRoute) => {
+// Get reports from shared service
+export const getTrafficReportsForRoute = async (currentRoute) => {
+  try {
+    // Try to get from shared service first
+    const response = await fetch(
+      `${API_BASE}/traffic-reports?start=${encodeURIComponent(currentRoute.start)}&end=${encodeURIComponent(currentRoute.end)}`
+    );
+
+    if (response.ok) {
+      const sharedReports = await response.json();
+      
+      // Also get local reports
+      const localReports = getLocalReportsForRoute(currentRoute);
+      
+      // Combine and deduplicate
+      const allReports = [...sharedReports, ...localReports];
+      const uniqueReports = deduplicateReports(allReports);
+      
+      return uniqueReports;
+    } else {
+      throw new Error('Failed to fetch from shared service');
+    }
+  } catch (error) {
+    console.warn('Shared service unavailable, using local reports:', error);
+    
+    // Fallback to local storage
+    return getLocalReportsForRoute(currentRoute);
+  }
+};
+
+// Local storage fallback functions
+const storeReportLocally = (report) => {
+  const reports = getStoredReports();
+  reports.push(report);
+  localStorage.setItem(TRAFFIC_REPORTS_KEY, JSON.stringify(reports));
+};
+
+const getLocalReportsForRoute = (currentRoute) => {
   const reports = getStoredReports();
   const now = Date.now();
   
-  // Filter expired reports and those relevant to current route
   return reports.filter(report => {
     // Filter expired reports
     if (now - report.timestamp > REPORT_TTL) return false;
@@ -55,36 +105,24 @@ export const getTrafficReportsForRoute = (currentRoute) => {
   });
 };
 
-// Check if a report is on or near the current route
-const isReportOnRoute = (report, route) => {
-  // Simple implementation: check if report is between start and end
-  // In reality, you'd want to check if it's actually on the route path
-  const reportLat = report.location.lat;
-  const reportLon = report.location.lon;
-  
-  const [startLat, startLon] = route.start.split(',').map(Number);
-  const [endLat, endLon] = route.end.split(',').map(Number);
-  
-  // Check if report is within the bounding box of the route
-  const minLat = Math.min(startLat, endLat);
-  const maxLat = Math.max(startLat, endLat);
-  const minLon = Math.min(startLon, endLon);
-  const maxLon = Math.max(startLon, endLon);
-  
-  // Add some padding to the bounding box
-  const padding = 0.1; // ~11km
-  return reportLat >= (minLat - padding) && 
-         reportLat <= (maxLat + padding) && 
-         reportLon >= (minLon - padding) && 
-         reportLon <= (maxLon + padding);
-};
-
 const getStoredReports = () => {
   try {
     return JSON.parse(localStorage.getItem(TRAFFIC_REPORTS_KEY)) || [];
   } catch {
     return [];
   }
+};
+
+const deduplicateReports = (reports) => {
+  const seen = new Set();
+  return reports.filter(report => {
+    const key = `${report.location.lat}-${report.location.lon}-${report.type}-${report.timestamp}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 };
 
 const generateId = () => {
@@ -100,8 +138,25 @@ const getDeviceId = () => {
   return deviceId;
 };
 
-// Note: For future use with Netlify Functions, you can implement sendToServer here
-// when you're ready to set up serverless functions
+// Keep the existing isReportOnRoute function
+const isReportOnRoute = (report, route) => {
+  const reportLat = report.location.lat;
+  const reportLon = report.location.lon;
+  
+  const [startLat, startLon] = route.start.split(',').map(Number);
+  const [endLat, endLon] = route.end.split(',').map(Number);
+  
+  const minLat = Math.min(startLat, endLat);
+  const maxLat = Math.max(startLat, endLat);
+  const minLon = Math.min(startLon, endLon);
+  const maxLon = Math.max(startLon, endLon);
+  
+  const padding = 0.1;
+  return reportLat >= (minLat - padding) && 
+         reportLat <= (maxLat + padding) && 
+         reportLon >= (minLon - padding) && 
+         reportLon <= (maxLon + padding);
+};
 
 export default {
   submitTrafficReport,
