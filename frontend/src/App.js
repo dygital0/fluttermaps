@@ -229,7 +229,6 @@ function App() {
             console.error('Error adding marker to map:', error);
         }
     };
-
     // Traffic reporting functions
     const handleSubmitReport = async () => {
         try {
@@ -238,21 +237,28 @@ function App() {
                 return;
             }
 
-            const report = await submitTrafficReport(currentReport);
-            setShowReportModal(false);
-            setCurrentReport(null);
+            // Use the temp marker location if available
+            let reportLocation = currentReport.location;
+            if (tempMarker) {
+                const latLng = tempMarker.getLatLng();
+                reportLocation = { lat: latLng.lat, lon: latLng.lng };
+            }
+
+            const report = await submitTrafficReport({
+                ...currentReport,
+                location: reportLocation
+            });
+            
+            // Use handleCloseModal to clean up properly
+            handleCloseModal();
             
             // Refresh and show reports
             loadTrafficReports();
-            
-            // Add marker for the report
-            addTrafficMarker(report);
             
         } catch (error) {
             alert('Failed to submit report: ' + error.message);
         }
     };
-
     const loadTrafficReports = async () => {
         if (start && end) {
             try {
@@ -334,31 +340,97 @@ function App() {
         return { lat: center.lat, lon: center.lng };
     };
 
+    const [isPlacingMarker, setIsPlacingMarker] = useState(false);
+    const [tempMarker, setTempMarker] = useState(null);
+
+    const handleMapClickForMarker = (e) => {
+        if (!isPlacingMarker) return;
+
+        const { lat, lng } = e.latlng;
+        
+        // Remove existing temp marker
+        if (tempMarker) {
+            const currentMap = mapRef.current || map;
+            if (currentMap) {
+                currentMap.removeLayer(tempMarker);
+            }
+        }
+
+        // Add new temp marker
+        const currentMap = mapRef.current || map;
+        if (currentMap) {
+            const marker = L.marker([lat, lng], {
+                icon: trafficIcon,
+                draggable: true // Allow user to adjust position
+            }).addTo(currentMap);
+
+            marker.bindPopup(`
+                <div class="temp-marker-popup">
+                    <h6>Selected Location</h6>
+                    <p>Drag to adjust or proceed with reporting</p>
+                </div>
+            `).openPopup();
+
+            setTempMarker(marker);
+            
+            // Update current report with selected location
+            setCurrentReport(prev => ({
+                ...prev,
+                location: { lat, lon: lng }
+            }));
+        }
+    };
+
+    // Add click handler to map
+    useEffect(() => {
+        const currentMap = mapRef.current || map;
+        if (currentMap) {
+            currentMap.on('click', handleMapClickForMarker);
+        }
+
+        return () => {
+            if (currentMap) {
+                currentMap.off('click', handleMapClickForMarker);
+            }
+        };
+    }, [map, isPlacingMarker, tempMarker]);
+
     // Traffic Report Modal Component
     const TrafficReportModal = () => {
         if (!showReportModal) return null;
 
+        const handleCloseModal = () => {
+            setShowReportModal(false);
+            setIsPlacingMarker(false);
+            if (tempMarker) {
+                const currentMap = mapRef.current || map;
+                if (currentMap) {
+                    currentMap.removeLayer(tempMarker);
+                }
+                setTempMarker(null);
+            }
+            setCurrentReport(null);
+        };
+
         return (
             <div className="modal-overlay">
                 <div className="traffic-report-modal">
-                    <div className="modal-header">
-                        <h4>Report Traffic Issue</h4>
+                    <div className="modal-header-improved">
                         <button 
-                            className="close-btn"
-                            onClick={() => setShowReportModal(false)}
+                            className="close-btn-improved"
+                            onClick={handleCloseModal}  // Updated here
                         >
                             <i className="fas fa-times"></i>
                         </button>
                     </div>
                     
-                    <div className="modal-body">
+                    <div className="modal-body-improved">
                         <div className="report-types-container">
-                            <h5 className="report-types-title">Select Issue Type</h5>
-                            <div className="report-types">
+                            <div className="report-types-grid">
                                 {Object.values(TrafficEventTypes).map(type => (
                                     <button
                                         key={type}
-                                        className={`report-type-btn ${currentReport?.type === type ? 'active' : ''}`}
+                                        className={`report-type-btn-improved ${currentReport?.type === type ? 'active' : ''}`}
                                         onClick={() => setCurrentReport({
                                             ...currentReport,
                                             type,
@@ -366,26 +438,26 @@ function App() {
                                             route: { start, end }
                                         })}
                                     >
-                                        <span className="report-icon">
+                                        <span className="report-icon-improved">
                                             <i className={getReportTypeIconClass(type)}></i>
                                         </span>
-                                        {getReportTypeLabel(type)}
+                                        <span className="report-label">{getReportTypeLabel(type)}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
                         
                         {currentReport && (
-                            <div className="report-details">
-                                <div className="form-group">
-                                    <label>Severity Level</label>
+                            <div className="report-details-improved">
+                                <div className="form-group-improved">
+                                    <label className="form-label">Severity Level</label>
                                     <select 
                                         value={currentReport.severity || 'medium'}
                                         onChange={(e) => setCurrentReport({
                                             ...currentReport,
                                             severity: e.target.value
                                         })}
-                                        className="form-control-dark"
+                                        className="form-control-improved"
                                     >
                                         <option value="low">Low Severity</option>
                                         <option value="medium">Medium Severity</option>
@@ -393,8 +465,8 @@ function App() {
                                     </select>
                                 </div>
                                 
-                                <div className="form-group">
-                                    <label>Additional Details (Optional)</label>
+                                <div className="form-group-improved">
+                                    <label className="form-label">Additional Details (Optional)</label>
                                     <textarea
                                         placeholder="Describe the traffic issue..."
                                         value={currentReport.description || ''}
@@ -402,20 +474,20 @@ function App() {
                                             ...currentReport,
                                             description: e.target.value
                                         })}
-                                        className="form-control-dark textarea-fixed"
+                                        className="form-control-improved textarea-stable"
                                         rows="3"
                                     />
                                 </div>
                                 
-                                <div className="modal-actions">
+                                <div className="modal-actions-improved">
                                     <button 
-                                        className="btn-secondary-custom"
-                                        onClick={() => setShowReportModal(false)}
+                                        className="btn-secondary-improved"
+                                        onClick={handleCloseModal}  // Updated here too
                                     >
                                         Cancel
                                     </button>
                                     <button 
-                                        className="btn-primary-custom"
+                                        className="btn-primary-improved"
                                         onClick={handleSubmitReport}
                                     >
                                         Submit Report
@@ -432,15 +504,34 @@ function App() {
     const TrafficReportButton = () => {
         if (!routeLine) return null;
 
+        const handleReportClick = () => {
+            setIsPlacingMarker(true);
+            setShowReportModal(true);
+            setCurrentReport({
+                type: null,
+                severity: 'medium',
+                description: '',
+                location: getCurrentMapCenter(),
+                route: { start, end }
+            });
+        };
+
         return (
             <div className="traffic-report-section">
                 <button 
                     className="btn-report-traffic"
-                    onClick={() => setShowReportModal(true)}
+                    onClick={handleReportClick}
                 >
                     <i className="fas fa-triangle-exclamation"></i>
                     Report Traffic Issue
                 </button>
+                
+                {isPlacingMarker && (
+                    <div className="placement-instruction">
+                        <i className="fas fa-mouse-pointer"></i>
+                        Click on the map to place the marker
+                    </div>
+                )}
                 
                 {Array.isArray(trafficReports) && trafficReports.length > 0 && (
                     <div className="traffic-alerts">
@@ -476,6 +567,8 @@ function App() {
         };
         return icons[type] || 'fas fa-traffic-light';
     };
+
+    
 
     // Initialize speech recognition
     useEffect(() => {
