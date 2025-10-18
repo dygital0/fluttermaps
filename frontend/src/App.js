@@ -41,31 +41,31 @@ const trafficIcon = new L.Icon({
 });
 
 // Helper function to validate coordinates
-const isValidCoordinate = (coord) => {
-    if (!coord) return false;
+// const isValidCoordinate = (coord) => {
+//     if (!coord) return false;
     
-    // Check if it's in the format "lat,lon"
-    const parts = coord.split(',');
-    if (parts.length !== 2) return false;
+//     // Check if it's in the format "lat,lon"
+//     const parts = coord.split(',');
+//     if (parts.length !== 2) return false;
     
-    const lat = parseFloat(parts[0]);
-    const lon = parseFloat(parts[1]);
+//     const lat = parseFloat(parts[0]);
+//     const lon = parseFloat(parts[1]);
     
-    // Check if they are valid numbers and within valid ranges
-    if (isNaN(lat) || isNaN(lon)) return false;
-    if (lat < -90 || lat > 90) return false;
-    if (lon < -180 || lon > 180) return false;
+//     // Check if they are valid numbers and within valid ranges
+//     if (isNaN(lat) || isNaN(lon)) return false;
+//     if (lat < -90 || lat > 90) return false;
+//     if (lon < -180 || lon > 180) return false;
     
-    // Check for obviously invalid coordinates (like 0,0 in the ocean)
-    if (lat === 0 && lon === 0) return false;
+//     // Check for obviously invalid coordinates (like 0,0 in the ocean)
+//     if (lat === 0 && lon === 0) return false;
     
-    // Check for coordinates with too many decimal places (potential formatting issues)
-    if (parts[0].split('.')[1]?.length > 6 || parts[1].split('.')[1]?.length > 6) {
-        console.warn('Coordinates have many decimal places, might be formatting issue:', coord);
-    }
+//     // Check for coordinates with too many decimal places (potential formatting issues)
+//     if (parts[0].split('.')[1]?.length > 6 || parts[1].split('.')[1]?.length > 6) {
+//         console.warn('Coordinates have many decimal places, might be formatting issue:', coord);
+//     }
     
-    return true;
-};
+//     return true;
+// };
 
 // Helper functions for traffic reporting
 const getReportTypeIcon = (type) => {
