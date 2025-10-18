@@ -68,16 +68,16 @@ const trafficIcon = new L.Icon({
 // };
 
 // Helper functions for traffic reporting
-const getReportTypeIcon = (type) => {
+const getReportTypeIconClass = (type) => {
     const icons = {
-        [TrafficEventTypes.TRAFFIC_JAM]: '🚗',
-        [TrafficEventTypes.ROAD_CLOSED]: '🚧',
-        [TrafficEventTypes.ACCIDENT]: '⚠️',
-        [TrafficEventTypes.CONSTRUCTION]: '🏗️',
-        [TrafficEventTypes.HAZARD]: '🔺',
-        [TrafficEventTypes.POLICE]: '🚓'
+        [TrafficEventTypes.TRAFFIC_JAM]: 'fas fa-car',
+        [TrafficEventTypes.ROAD_CLOSED]: 'fas fa-road',
+        [TrafficEventTypes.ACCIDENT]: 'fas fa-car-crash',
+        [TrafficEventTypes.CONSTRUCTION]: 'fas fa-cone', // Fixed
+        [TrafficEventTypes.HAZARD]: 'fas fa-exclamation-triangle',
+        [TrafficEventTypes.POLICE]: 'fas fa-shield-alt' // Fixed
     };
-    return icons[type] || '🚦';
+    return icons[type] || 'fas fa-traffic-light';
 };
 
 const getReportTypeLabel = (type) => {
