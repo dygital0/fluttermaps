@@ -1,5 +1,21 @@
-// tomtomService.js
 const TOMTOM_API_KEY = process.env.REACT_APP_TOMTOM_API_KEY || '9wKLH4AylQrqsjmUojGZLPBEqE30kwXF';
+
+// Add the validateCoordinates function at the top
+export const validateCoordinates = (coord) => {
+    if (!coord) return false;
+    
+    const parts = coord.split(',');
+    if (parts.length !== 2) return false;
+    
+    const lat = parseFloat(parts[0]);
+    const lon = parseFloat(parts[1]);
+    
+    if (isNaN(lat) || isNaN(lon)) return false;
+    if (lat < -90 || lat > 90) return false;
+    if (lon < -180 || lon > 180) return false;
+    
+    return true;
+};
 
 export const getRoute = async (start, end) => {
     try {
@@ -52,10 +68,11 @@ export const getRoute = async (start, end) => {
 export const getSuggestions = async (query) => {
     try {
         // Skip API call for empty queries or coordinates
-        if (!query || query.trim() === '' || isValidCoordinate(query)) {
+        if (!query || query.trim() === '' || validateCoordinates(query)) {
             return [];
         }
 
+        // Don't skip common terms - let the API handle them for accuracy
         const response = await fetch(
             `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=${TOMTOM_API_KEY}&limit=5&typeahead=true`
         );
@@ -66,14 +83,7 @@ export const getSuggestions = async (query) => {
         }
         
         const data = await response.json();
-        
-        // Ensure we have a valid results array
-        if (!data.results || !Array.isArray(data.results)) {
-            console.warn('Invalid response format from suggestions API:', data);
-            return [];
-        }
-        
-        return data.results;
+        return data.results || [];
     } catch (error) {
         console.error('Error in getSuggestions:', error);
         return [];
@@ -99,23 +109,7 @@ export const getPlaceDetails = async (placeId) => {
     }
 };
 
-// Utility function to validate coordinates (can be used by both services)
-export const validateCoordinates = (coord) => {
-    if (!coord) return false;
-    
-    const parts = coord.split(',');
-    if (parts.length !== 2) return false;
-    
-    const lat = parseFloat(parts[0]);
-    const lon = parseFloat(parts[1]);
-    
-    if (isNaN(lat) || isNaN(lon)) return false;
-    if (lat < -90 || lat > 90) return false;
-    if (lon < -180 || lon > 180) return false;
-    
-    return true;
-};
-
+// Remove the duplicate validateCoordinates function that was here
 // Utility function to extract coordinates from different formats
 export const extractCoordinates = (input) => {
     if (!input) return null;

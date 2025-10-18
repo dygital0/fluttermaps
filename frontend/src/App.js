@@ -1,5 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getRoute, getSuggestions, getPlaceDetails } from './tomtomService';
+import { 
+  getRoute, 
+  getSuggestions, 
+  getPlaceDetails,
+  validateCoordinates as isValidCoordinate 
+} from './tomtomService';
 import { 
   submitTrafficReport, 
   getTrafficReportsForRoute, 
