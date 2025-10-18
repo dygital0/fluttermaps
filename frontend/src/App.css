@@ -1545,3 +1545,88 @@
 .textarea-stable::-webkit-scrollbar-thumb:hover {
     background: #3d9be5;
 }
+
+.leaflet-popup-content-wrapper {
+  background: #1F1B24 !important;
+  color: #ffffff !important;
+  border: 1px solid #2d2d2d !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
+}
+
+.leaflet-popup-tip {
+  background: #1F1B24 !important;
+  border: 1px solid #2d2d2d !important;
+}
+
+.leaflet-popup-content {
+  color: #ffffff !important;
+  margin: 8px !important;
+  font-family: inherit !important;
+  font-size: 0.9rem !important;
+  line-height: 1.4 !important;
+}
+
+.leaflet-popup-close-button {
+  color: #ffffff !important;
+  background: #1F1B24 !important;
+  border: none !important;
+  font-size: 1.2rem !important;
+  padding: 4px 8px !important;
+  border-radius: 0.25rem !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #a0a0a0 !important;
+  background: #2d2d2d !important;
+}
+
+/* Specific styles for our custom popups */
+.location-popup, .traffic-popup, .temp-marker-popup {
+  background: #1F1B24 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+}
+
+.location-popup h6, .traffic-popup h6, .temp-marker-popup h6 {
+  color: #4dabf7 !important;
+  margin-bottom: 8px !important;
+  font-size: 0.95rem !important;
+}
+
+.location-popup p, .traffic-popup p, .temp-marker-popup p {
+  color: #a0a0a0 !important;
+  margin: 4px 0 !important;
+  font-size: 0.85rem !important;
+}
+
+.textarea-stable {
+  resize: vertical;
+  min-height: 80px;
+  max-height: 150px;
+  overflow-y: auto;
+  background-color: #2d2d2d;
+  border: 1px solid #3d3d3d;
+  color: #ffffff;
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  /* Prevent layout shifts */
+  contain: layout style;
+  will-change: transform;
+}
+
+/* Ensure the parent container doesn't cause scroll jumps */
+.report-details-improved {
+  animation: fadeIn 0.3s ease;
+  border-top: 1px solid #2d2d2d;
+  padding-top: 1.5rem;
+  /* Prevent layout shifts */
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
