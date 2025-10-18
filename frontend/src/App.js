@@ -244,7 +244,8 @@ function App() {
                 reportLocation = { lat: latLng.lat, lon: latLng.lng };
             }
 
-            const report = await submitTrafficReport({
+            // Remove the assignment to 'report' since we're not using it
+            await submitTrafficReport({
                 ...currentReport,
                 location: reportLocation
             });
@@ -259,6 +260,7 @@ function App() {
             alert('Failed to submit report: ' + error.message);
         }
     };
+
     const loadTrafficReports = async () => {
         if (start && end) {
             try {
@@ -395,22 +397,22 @@ function App() {
         };
     }, [map, isPlacingMarker, tempMarker]);
 
+    const handleCloseModal = () => {
+        setShowReportModal(false);
+        setIsPlacingMarker(false);
+        if (tempMarker) {
+            const currentMap = mapRef.current || map;
+            if (currentMap) {
+                currentMap.removeLayer(tempMarker);
+            }
+            setTempMarker(null);
+        }
+        setCurrentReport(null);
+    };
+
     // Traffic Report Modal Component
     const TrafficReportModal = () => {
         if (!showReportModal) return null;
-
-        const handleCloseModal = () => {
-            setShowReportModal(false);
-            setIsPlacingMarker(false);
-            if (tempMarker) {
-                const currentMap = mapRef.current || map;
-                if (currentMap) {
-                    currentMap.removeLayer(tempMarker);
-                }
-                setTempMarker(null);
-            }
-            setCurrentReport(null);
-        };
 
         return (
             <div className="modal-overlay">
@@ -418,7 +420,7 @@ function App() {
                     <div className="modal-header-improved">
                         <button 
                             className="close-btn-improved"
-                            onClick={handleCloseModal}  // Updated here
+                            onClick={handleCloseModal}  // Using the external function
                         >
                             <i className="fas fa-times"></i>
                         </button>
@@ -482,7 +484,7 @@ function App() {
                                 <div className="modal-actions-improved">
                                     <button 
                                         className="btn-secondary-improved"
-                                        onClick={handleCloseModal}  // Updated here too
+                                        onClick={() => setShowReportModal(false)}
                                     >
                                         Cancel
                                     </button>
