@@ -472,10 +472,21 @@ function App() {
                                     <textarea
                                         placeholder="Describe the traffic issue..."
                                         value={currentReport.description || ''}
-                                        onChange={(e) => setCurrentReport({
-                                            ...currentReport,
-                                            description: e.target.value
-                                        })}
+                                        onChange={(e) => {
+                                            // Use a ref to store the current scroll position
+                                            const textarea = e.target;
+                                            const scrollTop = textarea.scrollTop;
+                                            
+                                            setCurrentReport({
+                                                ...currentReport,
+                                                description: e.target.value
+                                            });
+                                            
+                                            // Restore scroll position after state update
+                                            setTimeout(() => {
+                                                textarea.scrollTop = scrollTop;
+                                            }, 0);
+                                        }}
                                         className="form-control-improved textarea-stable"
                                         rows="3"
                                     />
