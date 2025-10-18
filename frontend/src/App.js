@@ -563,9 +563,9 @@ function App() {
             [TrafficEventTypes.TRAFFIC_JAM]: 'fas fa-car',
             [TrafficEventTypes.ROAD_CLOSED]: 'fas fa-road',
             [TrafficEventTypes.ACCIDENT]: 'fas fa-car-crash',
-            [TrafficEventTypes.CONSTRUCTION]: 'fas fa-cone',
+            [TrafficEventTypes.CONSTRUCTION]: 'fas fa-person-digging',
             [TrafficEventTypes.HAZARD]: 'fas fa-exclamation-triangle',
-            [TrafficEventTypes.POLICE]: 'fas fa-shield-alt'
+            [TrafficEventTypes.POLICE]: 'fas fa-person-military-pointing'
         };
         return icons[type] || 'fas fa-traffic-light';
     };
