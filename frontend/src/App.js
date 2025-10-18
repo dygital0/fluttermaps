@@ -1273,7 +1273,7 @@ function App() {
             case 'error':
                 return 'Try Again';
             default:
-                return 'Voice Directions';
+                return 'Voice Directions  ';
         }
     };
 
