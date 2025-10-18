@@ -410,136 +410,110 @@ function App() {
         setCurrentReport(null);
     };
 
-    const TrafficReportModalContent = React.memo(({ 
-    currentReport, 
-    setCurrentReport, 
-    handleCloseModal, 
-    handleSubmitReport 
-    }) => {
-    const [localDescription, setLocalDescription] = useState(currentReport?.description || '');
-
-    // Update the parent state only when needed (on blur or submit)
-    const handleDescriptionChange = (e) => {
-        const value = e.target.value;
-        setLocalDescription(value);
-    };
-
-    const handleDescriptionBlur = () => {
-        setCurrentReport(prev => ({
-        ...prev,
-        description: localDescription
-        }));
-    };
-
-    const handleSubmit = () => {
-        // Ensure current report has latest description
-        setCurrentReport(prev => ({
-        ...prev,
-        description: localDescription
-        }));
-        // Use setTimeout to ensure state is updated before submission
-        setTimeout(handleSubmitReport, 0);
-    };
-
-    return (
-        <div className="modal-overlay">
-        <div className="traffic-report-modal">
-            <div className="modal-header-improved">
-            <button 
-                className="close-btn-improved"
-                onClick={handleCloseModal}
-            >
-                <i className="fas fa-times"></i>
-            </button>
-            </div>
-            
-            <div className="modal-body-improved">
-            <div className="report-types-container">
-                <div className="report-types-grid">
-                {Object.values(TrafficEventTypes).map(type => (
-                    <button
-                    key={type}
-                    className={`report-type-btn-improved ${currentReport?.type === type ? 'active' : ''}`}
-                    onClick={() => setCurrentReport({
-                        ...currentReport,
-                        type,
-                        location: getCurrentMapCenter(),
-                        route: { start, end }
-                    })}
-                    >
-                    <span className="report-icon-improved">
-                        <i className={getReportTypeIconClass(type)}></i>
-                    </span>
-                    <span className="report-label">{getReportTypeLabel(type)}</span>
-                    </button>
-                ))}
-                </div>
-            </div>
-            
-            {currentReport && (
-                <div className="report-details-improved">
-                <div className="form-group-improved">
-                    <label className="form-label">Severity Level</label>
-                    <select 
-                    value={currentReport.severity || 'medium'}
-                    onChange={(e) => setCurrentReport({
-                        ...currentReport,
-                        severity: e.target.value
-                    })}
-                    className="form-control-improved"
-                    >
-                    <option value="low">Low Severity</option>
-                    <option value="medium">Medium Severity</option>
-                    <option value="high">High Severity</option>
-                    </select>
-                </div>
-                
-                <div className="form-group-improved">
-                    <label className="form-label">Additional Details (Optional)</label>
-                    <textarea
-                    placeholder="Describe the traffic issue..."
-                    value={localDescription}
-                    onChange={handleDescriptionChange}
-                    onBlur={handleDescriptionBlur}
-                    className="form-control-improved textarea-stable"
-                    rows="3"
-                    />
-                </div>
-                
-                <div className="modal-actions-improved">
-                    <button 
-                    className="btn-secondary-improved"
-                    onClick={handleCloseModal}
-                    >
-                    Cancel
-                    </button>
-                    <button 
-                    className="btn-primary-improved"
-                    onClick={handleSubmit}
-                    >
-                    Submit Report
-                    </button>
-                </div>
-                </div>
-            )}
-            </div>
-        </div>
-        </div>
-    );
-    });
-
     // Traffic Report Modal Component
     const TrafficReportModal = () => {
-    if (!showReportModal) return null;
+        const textareaRef = useRef(null);
+        
+        if (!showReportModal) return null;
 
-    return (
-        <TrafficReportModalContent
-        currentReport={currentReport}
-        setCurrentReport={setCurrentReport}
-        handleCloseModal={handleCloseModal}
-        handleSubmitReport={handleSubmitReport}
-        />
-    );
+        const handleSubmit = () => {
+            const description = textareaRef.current?.value || '';
+            
+            setCurrentReport(prev => ({
+                ...prev,
+                description: description
+            }));
+            
+            // Use setTimeout to ensure state is updated before submission
+            setTimeout(() => {
+                handleSubmitReport();
+            }, 0);
+        };
+
+        return (
+            <div className="modal-overlay">
+                <div className="traffic-report-modal">
+                    <div className="modal-header-improved">
+                        <button 
+                            className="close-btn-improved"
+                            onClick={handleCloseModal}
+                        >
+                            <i className="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div className="modal-body-improved">
+                        <div className="report-types-container">
+                            <div className="report-types-grid">
+                                {Object.values(TrafficEventTypes).map(type => (
+                                    <button
+                                        key={type}
+                                        className={`report-type-btn-improved ${currentReport?.type === type ? 'active' : ''}`}
+                                        onClick={() => setCurrentReport({
+                                            ...currentReport,
+                                            type,
+                                            location: getCurrentMapCenter(),
+                                            route: { start, end }
+                                        })}
+                                    >
+                                        <span className="report-icon-improved">
+                                            <i className={getReportTypeIconClass(type)}></i>
+                                        </span>
+                                        <span className="report-label">{getReportTypeLabel(type)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        {currentReport && (
+                            <div className="report-details-improved">
+                                <div className="form-group-improved">
+                                    <label className="form-label">Severity Level</label>
+                                    <select 
+                                        value={currentReport.severity || 'medium'}
+                                        onChange={(e) => setCurrentReport({
+                                            ...currentReport,
+                                            severity: e.target.value
+                                        })}
+                                        className="form-control-improved"
+                                    >
+                                        <option value="low">Low Severity</option>
+                                        <option value="medium">Medium Severity</option>
+                                        <option value="high">High Severity</option>
+                                    </select>
+                                </div>
+                                
+                                <div className="form-group-improved">
+                                    <label className="form-label">Additional Details (Optional)</label>
+                                    <textarea
+                                        ref={textareaRef}
+                                        placeholder="Describe the traffic issue..."
+                                        defaultValue={currentReport.description || ''}
+                                        className="form-control-improved textarea-stable"
+                                        rows="3"
+                                    />
+                                </div>
+                                
+                                <div className="modal-actions-improved">
+                                    <button 
+                                        className="btn-secondary-improved"
+                                        onClick={handleCloseModal}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        className="btn-primary-improved"
+                                        onClick={handleSubmit}
+                                    >
+                                        Submit Report
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
     };
     // Traffic Report Button Component
     const TrafficReportButton = () => {
