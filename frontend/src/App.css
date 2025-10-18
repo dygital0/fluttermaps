@@ -1949,3 +1949,25 @@
   background: #3d3d3d !important;
   border: 1px solid #3d3d3d !important;
 }
+
+/* Softer dark theme borders */
+.leaflet-popup-content-wrapper {
+  background: #1F1B24 !important;
+  background-color: #1F1B24 !important;
+  color: #ffffff !important;
+  border: 1px solid #3d3d3d !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-tip {
+  background: #3d3d3d !important;
+  border: 1px solid #3d3d3d !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.leaflet-container .leaflet-popup-tip {
+  border: 1px solid #3d3d3d !important;
+  background: #3d3d3d !important;
+}
