@@ -51,12 +51,11 @@ export const getRoute = async (start, end) => {
 
 export const getSuggestions = async (query) => {
     try {
-        // Skip API call for empty queries
-        if (!query || query.trim() === '') {
+        // Skip API call for empty queries or coordinates
+        if (!query || query.trim() === '' || isValidCoordinate(query)) {
             return [];
         }
 
-        // Don't skip common terms - let the API handle them for accuracy
         const response = await fetch(
             `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=${TOMTOM_API_KEY}&limit=5&typeahead=true`
         );
@@ -67,7 +66,14 @@ export const getSuggestions = async (query) => {
         }
         
         const data = await response.json();
-        return data.results || [];
+        
+        // Ensure we have a valid results array
+        if (!data.results || !Array.isArray(data.results)) {
+            console.warn('Invalid response format from suggestions API:', data);
+            return [];
+        }
+        
+        return data.results;
     } catch (error) {
         console.error('Error in getSuggestions:', error);
         return [];

@@ -883,16 +883,18 @@ function App() {
             clearTimeout(debounceTimeoutRef.current);
         }
 
-        if (isCoordinates(value)) {
+        // Don't fetch suggestions for coordinate inputs
+        if (isCoordinates(value) || isValidCoordinate(value)) {
             setSuggestions([]);
             return;
         }
 
         debounceTimeoutRef.current = setTimeout(async () => {
-            if (value) {
+            if (value && value.trim().length > 2) { // Only search for meaningful queries
                 try {
                     const suggestions = await getSuggestions(value);
-                    setSuggestions(suggestions);
+                    // Ensure suggestions is always an array
+                    setSuggestions(Array.isArray(suggestions) ? suggestions : []);
                 } catch (error) {
                     console.error('Error fetching suggestions:', error);
                     setSuggestions([]);
@@ -900,7 +902,7 @@ function App() {
             } else {
                 setSuggestions([]);
             }
-        }, 900);
+        }, 500); // Reduced debounce time for better UX
     };
 
     const handleSuggestionClick = async (suggestion, setInput, setSuggestions, markerRef, isStart) => {
@@ -910,7 +912,20 @@ function App() {
             return;
         }
 
+        // Add null/undefined checks for the suggestion object
+        if (!suggestion || !suggestion.position) {
+            console.error('Invalid suggestion object:', suggestion);
+            return;
+        }
+
         const { position, address, id } = suggestion;
+        
+        // Validate position object
+        if (!position || typeof position.lat === 'undefined' || typeof position.lon === 'undefined') {
+            console.error('Invalid position in suggestion:', suggestion);
+            return;
+        }
+
         const coordinates = `${position.lat},${position.lon}`;
         setInput(coordinates);
         
@@ -923,32 +938,38 @@ function App() {
         
         setSuggestions([]);
 
-        const marker = L.marker([position.lat, position.lon], { 
-            icon: isStart ? redIcon : blueIcon 
-        }).addTo(currentMap);
+        try {
+            const marker = L.marker([position.lat, position.lon], { 
+                icon: isStart ? redIcon : blueIcon 
+            }).addTo(currentMap);
 
-        marker.locationInfo = {
-            address: address.freeformAddress,
-            position: position,
-            id: id
-        };
+            // Create location info with proper fallbacks
+            marker.locationInfo = {
+                address: address?.freeformAddress || coordinates,
+                position: position,
+                id: id || coordinates,
+                type: isStart ? 'start' : 'end'
+            };
 
-        marker.on('click', async () => {
-            setSelectedLocation(marker.locationInfo);
-            await fetchLocationDetails(marker.locationInfo);
-        });
+            marker.on('click', async () => {
+                setSelectedLocation(marker.locationInfo);
+                await fetchLocationDetails(marker.locationInfo);
+            });
 
-        marker.bindPopup(`
-            <div class="location-popup">
-                <h6>${address.freeformAddress}</h6>
-                <p>Click for detailed information</p>
-            </div>
-        `);
+            marker.bindPopup(`
+                <div class="location-popup">
+                    <h6>${address?.freeformAddress || coordinates}</h6>
+                    <p>Click for detailed information</p>
+                </div>
+            `);
 
-        if (markerRef.current) {
-            currentMap.removeLayer(markerRef.current);
+            if (markerRef.current) {
+                currentMap.removeLayer(markerRef.current);
+            }
+            markerRef.current = marker;
+        } catch (error) {
+            console.error('Error creating marker:', error);
         }
-        markerRef.current = marker;
     };
 
     const fetchLocationDetails = async (locationInfo) => {
