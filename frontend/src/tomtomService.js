@@ -72,7 +72,6 @@ export const getSuggestions = async (query) => {
             return [];
         }
 
-        // Don't skip common terms - let the API handle them for accuracy
         const response = await fetch(
             `https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?key=${TOMTOM_API_KEY}&limit=5&typeahead=true`
         );
@@ -83,7 +82,14 @@ export const getSuggestions = async (query) => {
         }
         
         const data = await response.json();
-        return data.results || [];
+        
+        // Enhanced safety check
+        if (data && Array.isArray(data.results)) {
+            return data.results;
+        } else {
+            console.warn('Unexpected API response format:', data);
+            return [];
+        }
     } catch (error) {
         console.error('Error in getSuggestions:', error);
         return [];

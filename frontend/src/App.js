@@ -253,45 +253,75 @@ function App() {
         }
     };
 
-    const loadTrafficReports = () => {
+    const loadTrafficReports = async () => {
         if (start && end) {
-            const reports = getTrafficReportsForRoute({ start, end });
-            setTrafficReports(reports);
-            
-            // Clear existing traffic markers
-            clearTrafficMarkers();
-            
-            // Add markers for each report
-            reports.forEach(report => addTrafficMarker(report));
+            try {
+                const reports = await getTrafficReportsForRoute({ start, end });
+                // Add array safety check
+                const safeReports = Array.isArray(reports) ? reports : [];
+                setTrafficReports(safeReports);
+                
+                // Clear existing traffic markers
+                clearTrafficMarkers();
+                
+                // Add markers for each report with safety check
+                if (Array.isArray(safeReports)) {
+                    safeReports.forEach(report => {
+                        if (report && report.location) {
+                            addTrafficMarker(report);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading traffic reports:', error);
+                setTrafficReports([]);
+            }
         }
     };
 
     const addTrafficMarker = (report) => {
         const currentMap = mapRef.current || map;
-        if (!currentMap) return;
+        if (!currentMap || !report || !report.location) return;
 
-        const marker = L.marker([report.location.lat, report.location.lon], {
-            icon: trafficIcon
-        }).addTo(currentMap);
+        try {
+            const marker = L.marker([report.location.lat, report.location.lon], {
+                icon: trafficIcon
+            }).addTo(currentMap);
 
-        marker.bindPopup(`
-            <div class="traffic-popup">
-                <h6>${getAlertTitle(report.type)}</h6>
-                <p><strong>Severity:</strong> ${report.severity}</p>
-                ${report.description ? `<p><strong>Details:</strong> ${report.description}</p>` : ''}
-                <p><small>Reported ${formatTimeAgo(report.timestamp)}</small></p>
-            </div>
-        `);
+            marker.bindPopup(`
+                <div class="traffic-popup">
+                    <h6>${getAlertTitle(report.type)}</h6>
+                    <p><strong>Severity:</strong> ${report.severity}</p>
+                    ${report.description ? `<p><strong>Details:</strong> ${report.description}</p>` : ''}
+                    <p><small>Reported ${formatTimeAgo(report.timestamp)}</small></p>
+                </div>
+            `);
 
-        setTrafficMarkers(prev => [...prev, marker]);
+            setTrafficMarkers(prev => {
+                // Ensure prev is always an array
+                const safePrev = Array.isArray(prev) ? prev : [];
+                return [...safePrev, marker];
+            });
+        } catch (error) {
+            console.error('Error adding traffic marker:', error);
+        }
     };
 
     const clearTrafficMarkers = () => {
         const currentMap = mapRef.current || map;
         if (!currentMap) return;
 
+        // Add safety check for trafficMarkers
+        if (!trafficMarkers || !Array.isArray(trafficMarkers)) {
+            console.warn('trafficMarkers is not an array:', trafficMarkers);
+            setTrafficMarkers([]);
+            return;
+        }
+
         trafficMarkers.forEach(marker => {
-            currentMap.removeLayer(marker);
+            if (marker && currentMap.hasLayer(marker)) {
+                currentMap.removeLayer(marker);
+            }
         });
         setTrafficMarkers([]);
     };
@@ -412,7 +442,7 @@ function App() {
                     Report Traffic Issue
                 </button>
                 
-                {trafficReports.length > 0 && (
+                {Array.isArray(trafficReports) && trafficReports.length > 0 && (
                     <div className="traffic-alerts">
                         <h6>Traffic Alerts on Route</h6>
                         {trafficReports.map(report => (
@@ -449,86 +479,106 @@ function App() {
 
     // Initialize speech recognition
     useEffect(() => {
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = false;
-            recognitionRef.current.interimResults = true;
-            recognitionRef.current.lang = 'en-US';
-            recognitionRef.current.maxAlternatives = 3;
+        try {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognitionRef.current = new SpeechRecognition();
+                recognitionRef.current.continuous = false;
+                recognitionRef.current.interimResults = true;
+                recognitionRef.current.lang = 'en-US';
+                recognitionRef.current.maxAlternatives = 3;
 
-            recognitionRef.current.onstart = () => {
-                setIsListening(true);
-                setVoiceStatus('listening');
-                setVoiceTranscript('');
-            };
+                recognitionRef.current.onstart = () => {
+                    setIsListening(true);
+                    setVoiceStatus('listening');
+                    setVoiceTranscript('');
+                };
 
-            recognitionRef.current.onresult = (event) => {
-                let finalTranscript = '';
-                let interimTranscript = '';
+                recognitionRef.current.onresult = (event) => {
+                    try {
+                        let finalTranscript = '';
+                        let interimTranscript = '';
 
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalTranscript += transcript;
-                    } else {
-                        interimTranscript += transcript;
-                    }
-                }
-
-                const fullTranscript = finalTranscript || interimTranscript;
-                setVoiceTranscript(fullTranscript);
-
-                if (fullTranscript.trim()) {
-                    const parsedCommand = parseVoiceCommand(fullTranscript);
-                    if (parsedCommand.isValid) {
-                        setVoiceStatus('processing');
-                        setVoiceCommand(`From ${parsedCommand.start} to ${parsedCommand.end}`);
-                        
-                        recognitionRef.current.stop();
-                        processVoiceCommand(parsedCommand.start, parsedCommand.end);
-                    }
-                }
-            };
-
-            recognitionRef.current.onerror = (event) => {
-                console.error('Speech recognition error:', event.error);
-                setIsListening(false);
-                
-                if (event.error === 'not-allowed') {
-                    setVoiceStatus('error');
-                    setVoiceCommand('Microphone access denied. Please allow microphone permissions.');
-                } else if (event.error === 'network') {
-                    setVoiceStatus('error');
-                    setVoiceCommand('Network error. Please check your connection.');
-                } else {
-                    setVoiceStatus('error');
-                    setVoiceCommand('Speech recognition failed. Please try again.');
-                }
-                
-                setTimeout(() => setVoiceStatus('ready'), 4000);
-            };
-
-            recognitionRef.current.onend = () => {
-                setIsListening(false);
-                if (voiceStatus === 'listening') {
-                    setTimeout(() => {
-                        if (voiceStatus === 'listening') {
-                            setVoiceStatus('ready');
-                            setVoiceTranscript('');
+                        for (let i = event.resultIndex; i < event.results.length; i++) {
+                            const transcript = event.results[i][0].transcript;
+                            if (event.results[i].isFinal) {
+                                finalTranscript += transcript;
+                            } else {
+                                interimTranscript += transcript;
+                            }
                         }
-                    }, 2000);
-                }
-            };
-        } else {
-            console.warn('Speech recognition not supported in this browser');
+
+                        const fullTranscript = finalTranscript || interimTranscript;
+                        setVoiceTranscript(fullTranscript);
+
+                        if (fullTranscript.trim()) {
+                            const parsedCommand = parseVoiceCommand(fullTranscript);
+                            if (parsedCommand.isValid) {
+                                setVoiceStatus('processing');
+                                setVoiceCommand(`From ${parsedCommand.start} to ${parsedCommand.end}`);
+                                
+                                try {
+                                    recognitionRef.current.stop();
+                                } catch (stopError) {
+                                    console.error('Error stopping recognition:', stopError);
+                                }
+                                processVoiceCommand(parsedCommand.start, parsedCommand.end);
+                            }
+                        }
+                    } catch (resultError) {
+                        console.error('Error processing speech result:', resultError);
+                        setVoiceStatus('error');
+                        setVoiceCommand('Error processing voice command.');
+                    }
+                };
+
+                recognitionRef.current.onerror = (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    setIsListening(false);
+                    
+                    if (event.error === 'not-allowed') {
+                        setVoiceStatus('error');
+                        setVoiceCommand('Microphone access denied. Please allow microphone permissions.');
+                    } else if (event.error === 'network') {
+                        setVoiceStatus('error');
+                        setVoiceCommand('Network error. Please check your connection.');
+                    } else {
+                        setVoiceStatus('error');
+                        setVoiceCommand('Speech recognition failed. Please try again.');
+                    }
+                    
+                    setTimeout(() => setVoiceStatus('ready'), 4000);
+                };
+
+                recognitionRef.current.onend = () => {
+                    setIsListening(false);
+                    if (voiceStatus === 'listening') {
+                        setTimeout(() => {
+                            if (voiceStatus === 'listening') {
+                                setVoiceStatus('ready');
+                                setVoiceTranscript('');
+                            }
+                        }, 2000);
+                    }
+                };
+            } else {
+                console.warn('Speech recognition not supported in this browser');
+                setVoiceStatus('error');
+                setVoiceCommand('Voice recognition not supported in your browser.');
+            }
+        } catch (initError) {
+            console.error('Error initializing speech recognition:', initError);
             setVoiceStatus('error');
-            setVoiceCommand('Voice recognition not supported in your browser.');
+            setVoiceCommand('Error initializing voice recognition.');
         }
 
         return () => {
             if (recognitionRef.current) {
-                recognitionRef.current.stop();
+                try {
+                    recognitionRef.current.stop();
+                } catch (cleanupError) {
+                    console.error('Error stopping speech recognition during cleanup:', cleanupError);
+                }
             }
         };
     }, []);
@@ -888,17 +938,16 @@ function App() {
             clearTimeout(debounceTimeoutRef.current);
         }
 
-        // Don't fetch suggestions for coordinate inputs
         if (isCoordinates(value) || isValidCoordinate(value)) {
             setSuggestions([]);
             return;
         }
 
         debounceTimeoutRef.current = setTimeout(async () => {
-            if (value && value.trim().length > 2) { // Only search for meaningful queries
+            if (value && value.trim().length > 2) {
                 try {
                     const suggestions = await getSuggestions(value);
-                    // Ensure suggestions is always an array
+                    // Add array safety check
                     setSuggestions(Array.isArray(suggestions) ? suggestions : []);
                 } catch (error) {
                     console.error('Error fetching suggestions:', error);
@@ -907,9 +956,8 @@ function App() {
             } else {
                 setSuggestions([]);
             }
-        }, 500); // Reduced debounce time for better UX
+        }, 500);
     };
-
     const handleSuggestionClick = async (suggestion, setInput, setSuggestions, markerRef, isStart) => {
         const currentMap = mapRef.current || map;
         if (!currentMap) {
@@ -1258,18 +1306,18 @@ function App() {
                                 </span>
                             </div>
                             <ul className="list-group-dark">
-                                {startSuggestions.map((suggestion, index) => (
+                                {Array.isArray(startSuggestions) && startSuggestions.map((suggestion, index) => (
                                     <li
                                         key={index}
                                         className="list-group-item-dark"
                                         onClick={() => handleSuggestionClick(suggestion, setStart, setStartSuggestions, startMarkerRef, true)}
                                     >
-                                        {suggestion.address.freeformAddress}
+                                        {suggestion.address?.freeformAddress || 'Unknown location'}
                                     </li>
                                 ))}
                             </ul>
                         </div>
-        
+
                         {/* End Location Input */}
                         <div className="form-group mb-2">
                             <input
@@ -1281,18 +1329,17 @@ function App() {
                                 autoComplete="off"
                             />
                             <ul className="list-group-dark">
-                                {endSuggestions.map((suggestion, index) => (
+                                {Array.isArray(endSuggestions) && endSuggestions.map((suggestion, index) => (
                                     <li
                                         key={index}
                                         className="list-group-item-dark"
                                         onClick={() => handleSuggestionClick(suggestion, setEnd, setEndSuggestions, endMarkerRef, false)}
                                     >
-                                        {suggestion.address.freeformAddress}
+                                        {suggestion.address?.freeformAddress || 'Unknown location'}
                                     </li>
                                 ))}
                             </ul>
                         </div>
-        
                         {/* Button to get the route */}
                         <div className="d-flex justify-content-between mb-3">
                             <button className="btn-primary-custom" onClick={handleRouteFetch} disabled={isSimulating}>
