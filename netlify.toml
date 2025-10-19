@@ -4,6 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  BROWSERSLIST_IGNORE_OLD_DATA = "true"
 
 [[redirects]]
   from = "/api/*"
