@@ -8,7 +8,7 @@ import {
 import { 
   submitTrafficReport, 
   getTrafficReportsForRoute, 
-  getNewTrafficReports, 
+  getNewTrafficReports,  // Add this
   TrafficEventTypes 
 } from './trafficService';
 import L from 'leaflet';
@@ -688,12 +688,10 @@ function App() {
         // Load initial reports
         loadTrafficReports();
         
-        // Set up real-time polling every 15 seconds
+        // Set up real-time polling every 10 seconds
         const interval = setInterval(() => {
-        if (start && end) {
-            loadTrafficReports(); // Just reload all reports for simplicity
-        }
-        }, 15000);
+        loadNewTrafficReports();
+        }, 10000); // Check for new reports every 10 seconds
         
         return () => clearInterval(interval);
     }
@@ -953,15 +951,19 @@ function App() {
     };
     // useEffect to clear any persisted data on page load
     useEffect(() => {
+    // Clear any old traffic report data from localStorage
     const clearOldData = () => {
+        const now = Date.now();
+        const twoHoursAgo = now - (2 * 60 * 60 * 1000);
+        
+        // You can add any other cleanup here
         console.log('Cleaning up old data...');
-        // Add any cleanup logic here if needed
     };
 
     clearOldData();
     }, []);
 
-    // const [connectionStatus, setConnectionStatus] = useState('connected');
+    const [connectionStatus, setConnectionStatus] = useState('connected');
 
 // Monitor connection status
 useEffect(() => {
