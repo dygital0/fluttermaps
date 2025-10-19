@@ -683,49 +683,22 @@ function App() {
     }, []);
 
     // Load traffic reports when route changes
+// Real-time traffic reports polling
     useEffect(() => {
     if (start && end) {
         // Load initial reports
         loadTrafficReports();
         
-        // Set up real-time polling every 10 seconds
+        // Set up real-time polling every 15 seconds
         const interval = setInterval(() => {
-        loadNewTrafficReports();
-        }, 10000); // Check for new reports every 10 seconds
+        if (start && end) {
+            loadTrafficReports();
+        }
+        }, 15000);
         
         return () => clearInterval(interval);
     }
     }, [start, end]);
-
-    // Add this new function for loading only new reports
-    const loadNewTrafficReports = async () => {
-    if (!start || !end) return;
-    
-    try {
-        const newReports = await getNewTrafficReports({ start, end });
-        
-        if (newReports.length > 0) {
-        console.log('New traffic reports found:', newReports.length);
-        
-        // Add markers for new reports
-        newReports.forEach(report => {
-            // Check if we already have this report
-            if (!trafficReports.some(existing => existing.id === report.id)) {
-            addTrafficMarker(report);
-            }
-        });
-        
-        // Update the reports state
-        setTrafficReports(prev => {
-            const existingIds = new Set(prev.map(r => r.id));
-            const uniqueNewReports = newReports.filter(report => !existingIds.has(report.id));
-            return [...prev, ...uniqueNewReports];
-        });
-        }
-    } catch (error) {
-        console.error('Error loading new traffic reports:', error);
-    }
-    };
 
     // Parse voice command
     const parseVoiceCommand = (transcript) => {
@@ -951,41 +924,37 @@ function App() {
     };
     // useEffect to clear any persisted data on page load
     useEffect(() => {
-    // Clear any old traffic report data from localStorage
     const clearOldData = () => {
-        const now = Date.now();
-        const twoHoursAgo = now - (2 * 60 * 60 * 1000);
-        
-        // You can add any other cleanup here
         console.log('Cleaning up old data...');
+        // Add any cleanup logic here if needed
     };
 
     clearOldData();
     }, []);
 
-    const [connectionStatus, setConnectionStatus] = useState('connected');
+//     const [connectionStatus, setConnectionStatus] = useState('connected');
 
-// Monitor connection status
-useEffect(() => {
-  const handleOnline = () => {
-    setConnectionStatus('connected');
-    if (start && end) {
-      loadTrafficReports(); // Reload when coming back online
-    }
-  };
+// // Monitor connection status
+//     useEffect(() => {
+//     const handleOnline = () => {
+//         setConnectionStatus('connected');
+//         if (start && end) {
+//         loadTrafficReports(); // Reload when coming back online
+//         }
+//     };
 
-    const handleOffline = () => {
-        setConnectionStatus('disconnected');
-    };
+//     const handleOffline = () => {
+//         setConnectionStatus('disconnected');
+//     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+//     window.addEventListener('online', handleOnline);
+//     window.addEventListener('offline', handleOffline);
 
-    return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-    };
-    }, [start, end]);
+//     return () => {
+//         window.removeEventListener('online', handleOnline);
+//         window.removeEventListener('offline', handleOffline);
+//     };
+//     }, [start, end]);
 
     // Initialize map
     useEffect(() => {
