@@ -889,6 +889,48 @@ function App() {
         }
     };
 
+        const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371; // Earth's radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    };
+
+    // Show direct line for very short routes when API fails
+    const showDirectRoute = (startCoords, endCoords) => {
+        const currentMap = mapRef.current || map;
+        if (!currentMap) return;
+
+        const [startLat, startLon] = startCoords.split(',').map(Number);
+        const [endLat, endLon] = endCoords.split(',').map(Number);
+        
+        const directLine = L.polyline([[startLat, startLon], [endLat, endLon]], {
+            color: '#4dabf7',
+            weight: 5,
+            opacity: 0.8,
+            dashArray: '5, 10' // Dashed line to indicate it's a direct route
+        }).addTo(currentMap);
+        
+        const bounds = directLine.getBounds();
+        currentMap.fitBounds(bounds, {
+            padding: [50, 50],
+        });
+
+        setRouteLine(directLine);
+        
+        // Estimate distance and time for direct route
+        const distance = calculateDistance(startLat, startLon, endLat, endLon) * 1000; // Convert to meters
+        simulateTimeAndEnergy(distance);
+        generateSimulationDetails(distance);
+        
+        console.log('Showing direct route due to API limitations');
+    };
+
     // Handle route fetch with explicit coordinates
     const handleRouteFetchWithCoords = async (startCoords, endCoords) => {
         // Prevent multiple simultaneous route requests
@@ -907,6 +949,18 @@ function App() {
             alert('Invalid coordinates detected. Please check your locations and try again.');
             setIsSimulating(false);
             return;
+        }
+
+        // Calculate distance between coordinates to prevent very short routes
+        const [startLat, startLon] = startCoords.split(',').map(Number);
+        const [endLat, endLon] = endCoords.split(',').map(Number);
+        
+        const distance = calculateDistance(startLat, startLon, endLat, endLon);
+        
+        // If distance is less than 1km, show warning but still try
+        if (distance < 1) {
+            console.warn('Very short route detected:', distance, 'km');
+            // You can choose to show a message or handle differently
         }
 
         isRoutingRef.current = true;
@@ -946,9 +1000,9 @@ function App() {
 
                 setRouteLine(polyline);
 
-                const distance = routeData.summary.lengthInMeters;
-                simulateTimeAndEnergy(distance);
-                generateSimulationDetails(distance);
+                const routeDistance = routeData.summary.lengthInMeters;
+                simulateTimeAndEnergy(routeDistance);
+                generateSimulationDetails(routeDistance);
             }
 
         } catch (error) {
@@ -958,6 +1012,8 @@ function App() {
             if (!routeLine) {
                 if (error.message.includes('400')) {
                     console.log('400 error detected, but proceeding as route might be valid');
+                    // For 400 errors with close locations, we can try to show a direct line
+                    showDirectRoute(startCoords, endCoords);
                 } else {
                     alert('Unable to calculate route. Please try different locations.');
                 }
