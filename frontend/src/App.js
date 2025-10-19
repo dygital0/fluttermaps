@@ -806,7 +806,7 @@ function App() {
             await addMarkerToMap(startCoords, true);
             await addMarkerToMap(endCoords, false);
 
-            // Wait a bit for state to update, then trigger route
+            // Wait a bit for state to update, then trigger route ONCE
             setTimeout(() => {
                 handleRouteFetchWithCoords(startCoords, endCoords);
                 setVoiceStatus('success');
@@ -826,6 +826,12 @@ function App() {
 
     // Handle route fetch with explicit coordinates
     const handleRouteFetchWithCoords = async (startCoords, endCoords) => {
+        // Prevent multiple simultaneous route requests
+        if (isRoutingRef.current) {
+            console.log('Route request already in progress, skipping...');
+            return;
+        }
+
         if (!startCoords || !endCoords) {
             alert('Please enter both start and end locations');
             return;
@@ -838,6 +844,7 @@ function App() {
             return;
         }
 
+        isRoutingRef.current = true;
         setIsSimulating(true);
         
         // Clear any existing route line state
@@ -883,19 +890,16 @@ function App() {
             console.error('Failed to fetch route:', error);
             
             // Check if we have a route line (meaning the route was actually displayed)
-            // If the route is displayed, don't show the error alert
             if (!routeLine) {
-                // Check if this is a 400 error but we might still have a valid route
                 if (error.message.includes('400')) {
-                    // Try to proceed anyway - sometimes 400 errors still return valid routes
                     console.log('400 error detected, but proceeding as route might be valid');
-                    // Don't show alert for 400 errors if the route works
                 } else {
                     alert('Unable to calculate route. Please try different locations.');
                 }
             }
         } finally {
             setIsSimulating(false);
+            isRoutingRef.current = false;
         }
     };
 
@@ -986,8 +990,17 @@ function App() {
         };
     }, [map]);
 
-    // Handle route fetch (for manual input)
+        // Handle route fetch (for manual input)
+    const isRoutingRef = useRef(false);
+
+    // Update your handleRouteFetch function:
     const handleRouteFetch = async () => {
+        // Prevent multiple simultaneous route requests
+        if (isRoutingRef.current) {
+            console.log('Route request already in progress, skipping...');
+            return;
+        }
+
         // Use refs as fallback if state hasn't updated yet
         const startValue = start || startCoordsRef.current;
         const endValue = end || endCoordsRef.current;
@@ -1003,6 +1016,7 @@ function App() {
             return;
         }
 
+        isRoutingRef.current = true;
         setIsSimulating(true);
         
         // Clear any existing route line state
@@ -1046,13 +1060,12 @@ function App() {
         } catch (error) {
             console.error('Failed to fetch route:', error);
             
-            // Don't show alert if we have a route line (route was displayed)
-            // or if it's just a 400 error but the route works
             if (!routeLine && !error.message.includes('400')) {
                 alert('Failed to fetch route details, but the route was calculated. Simulation data might be limited.');
             }
         } finally {
             setIsSimulating(false);
+            isRoutingRef.current = false;
         }
     };
 
@@ -1098,7 +1111,14 @@ function App() {
             }
         }, 500);
     };
+
     const handleSuggestionClick = async (suggestion, setInput, setSuggestions, markerRef, isStart) => {
+        // Add this check at the beginning
+        if (isRoutingRef.current) {
+            console.log('Route request in progress, skipping suggestion click');
+            return;
+        }
+
         const currentMap = mapRef.current || map;
         if (!currentMap) {
             console.error('Map not initialized');
@@ -1136,7 +1156,6 @@ function App() {
                 icon: isStart ? redIcon : blueIcon 
             }).addTo(currentMap);
 
-            // Create location info with proper fallbacks
             marker.locationInfo = {
                 address: address?.freeformAddress || coordinates,
                 position: position,
