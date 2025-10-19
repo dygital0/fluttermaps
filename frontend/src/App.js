@@ -262,29 +262,19 @@ function App() {
     };
 
     const loadTrafficReports = async () => {
-        if (start && end) {
-            try {
-                const reports = await getTrafficReportsForRoute({ start, end });
-                // Add array safety check
-                const safeReports = Array.isArray(reports) ? reports : [];
-                setTrafficReports(safeReports);
-                
-                // Clear existing traffic markers
-                clearTrafficMarkers();
-                
-                // Add markers for each report with safety check
-                if (Array.isArray(safeReports)) {
-                    safeReports.forEach(report => {
-                        if (report && report.location) {
-                            addTrafficMarker(report);
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading traffic reports:', error);
-                setTrafficReports([]);
-            }
+    if (start && end) {
+        try {
+        const reports = await getTrafficReportsForRoute({ start, end });
+        const safeReports = Array.isArray(reports) ? reports : [];
+        setTrafficReports(safeReports);
+        
+        clearTrafficMarkers();
+        safeReports.forEach(report => addTrafficMarker(report));
+        } catch (error) {
+        console.error('Error loading traffic reports:', error);
+        setTrafficReports([]);
         }
+    }
     };
 
     const addTrafficMarker = (report) => {
@@ -693,12 +683,48 @@ function App() {
 
     // Load traffic reports when route changes
     useEffect(() => {
+    if (start && end) {
+        // Load initial reports
         loadTrafficReports();
         
-        // Poll for new reports every 30 seconds
-        const interval = setInterval(loadTrafficReports, 30000);
+        // Set up real-time polling every 10 seconds
+        const interval = setInterval(() => {
+        loadNewTrafficReports();
+        }, 10000); // Check for new reports every 10 seconds
+        
         return () => clearInterval(interval);
+    }
     }, [start, end]);
+
+    // Add this new function for loading only new reports
+    const loadNewTrafficReports = async () => {
+    if (!start || !end) return;
+    
+    try {
+        const newReports = await getNewTrafficReports({ start, end });
+        
+        if (newReports.length > 0) {
+        console.log('New traffic reports found:', newReports.length);
+        
+        // Add markers for new reports
+        newReports.forEach(report => {
+            // Check if we already have this report
+            if (!trafficReports.some(existing => existing.id === report.id)) {
+            addTrafficMarker(report);
+            }
+        });
+        
+        // Update the reports state
+        setTrafficReports(prev => {
+            const existingIds = new Set(prev.map(r => r.id));
+            const uniqueNewReports = newReports.filter(report => !existingIds.has(report.id));
+            return [...prev, ...uniqueNewReports];
+        });
+        }
+    } catch (error) {
+        console.error('Error loading new traffic reports:', error);
+    }
+    };
 
     // Parse voice command
     const parseVoiceCommand = (transcript) => {
@@ -922,13 +948,50 @@ function App() {
             }
         }
     };
+    // useEffect to clear any persisted data on page load
+    useEffect(() => {
+    // Clear any old traffic report data from localStorage
+    const clearOldData = () => {
+        const now = Date.now();
+        const twoHoursAgo = now - (2 * 60 * 60 * 1000);
+        
+        // You can add any other cleanup here
+        console.log('Cleaning up old data...');
+    };
+
+    clearOldData();
+    }, []);
+
+    const [connectionStatus, setConnectionStatus] = useState('connected');
+
+// Monitor connection status
+useEffect(() => {
+  const handleOnline = () => {
+    setConnectionStatus('connected');
+    if (start && end) {
+      loadTrafficReports(); // Reload when coming back online
+    }
+  };
+
+    const handleOffline = () => {
+        setConnectionStatus('disconnected');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+    };
+    }, [start, end]);
 
     // Initialize map
     useEffect(() => {
         const initMap = () => {
             const mapInstance = L.map(mapContainerRef.current).setView([20, 0], 2);
             
-            L.tileLayer('https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=9wKLH4AylQrqsjmUojGZLPBEqE30kwXF', {
+            L.tileLayer('https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=9wKLH4AylQrqsjmUojGZLPBEqE30kwXF&language=en-GB', {
                 attribution: '&copy; ButterflyNAV',
                 zoomControl: true,
                 attributionControl: true,
@@ -1300,55 +1363,47 @@ function App() {
     };
 
     const resetMap = () => {
-        setStart('');
-        setEnd('');
-        setStartSuggestions([]);
-        setEndSuggestions([]);
-        setTime('');
-        setDistance('');
-        setChaosSimulationDetails(null);
-        setGameSimulationDetails(null);
-        setRouteLine(null);
-        setSelectedLocation(null);
-        setLocationDetails(null);
-        setTrafficReports([]);
-        setShowReportModal(false);
-        setCurrentReport(null);
+    // Clear all state
+    setStart('');
+    setEnd('');
+    setStartSuggestions([]);
+    setEndSuggestions([]);
+    setTime('');
+    setDistance('');
+    setChaosSimulationDetails(null);
+    setGameSimulationDetails(null);
+    setRouteLine(null);
+    setSelectedLocation(null);
+    setLocationDetails(null);
+    setTrafficReports([]);
+    setShowReportModal(false);
+    setCurrentReport(null);
+    setIsPlacingMarker(false);
 
-        // Reset refs
-        startCoordsRef.current = '';
-        endCoordsRef.current = '';
+    // Reset refs
+    startCoordsRef.current = '';
+    endCoordsRef.current = '';
 
-        const currentMap = mapRef.current || map;
-        if (currentMap) {
-            if (startMarkerRef.current) {
-                currentMap.removeLayer(startMarkerRef.current);
-                startMarkerRef.current = null;
-            }
-
-            if (endMarkerRef.current) {
-                currentMap.removeLayer(endMarkerRef.current);
-                endMarkerRef.current = null;
-            }
-
-            if (routeLine) {
-                currentMap.removeLayer(routeLine);
-                setRouteLine(null);
-            }
-
-            // Clear ALL traffic markers and reports
-            clearTrafficMarkers();
-            setTrafficReports([]);
-
-            // Remove any remaining polylines
-            currentMap.eachLayer((layer) => {
-                if (layer instanceof L.Polyline) {
-                    currentMap.removeLayer(layer);
-                }
-            });
-
-            currentMap.setView([20, 0], 2);
+    const currentMap = mapRef.current || map;
+    if (currentMap) {
+        // Clear all markers and layers
+        currentMap.eachLayer((layer) => {
+        if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+            currentMap.removeLayer(layer);
         }
+        });
+
+        // Reset map view
+        currentMap.setView([20, 0], 2);
+        
+        // Clear traffic markers array
+        setTrafficMarkers([]);
+    }
+
+    // Clear any temp marker
+    if (tempMarker) {
+        setTempMarker(null);
+    }
     };
     const closeLocationDetails = () => {
         setSelectedLocation(null);
