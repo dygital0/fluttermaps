@@ -991,7 +991,7 @@ useEffect(() => {
         const initMap = () => {
             const mapInstance = L.map(mapContainerRef.current).setView([20, 0], 2);
             
-            L.tileLayer('https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=9wKLH4AylQrqsjmUojGZLPBEqE30kwXF&language=en-GB', {
+            L.tileLayer('https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=9wKLH4AylQrqsjmUojGZLPBEqE30kwXF', {
                 attribution: '&copy; ButterflyNAV',
                 zoomControl: true,
                 attributionControl: true,
