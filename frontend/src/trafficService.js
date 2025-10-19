@@ -1,8 +1,5 @@
-const TRAFFIC_REPORTS_KEY = 'butterfly_nav_traffic_reports';
-const REPORT_TTL = 2 * 60 * 60 * 1000; // 2 hours
-const API_BASE = process.env.NODE_ENV === 'development' 
-  ? 'http://localhost:8888/.netlify/functions' 
-  : '/.netlify/functions';
+const API_BASE = '/.netlify/functions';
+let lastFetchTime = 0;
 
 export const TrafficEventTypes = {
   TRAFFIC_JAM: 'traffic_jam',
@@ -13,153 +10,57 @@ export const TrafficEventTypes = {
   POLICE: 'police'
 };
 
-// Submit report to shared service
 export const submitTrafficReport = async (report) => {
   try {
-    // First try to submit to shared service
     const response = await fetch(`${API_BASE}/traffic-reports`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...report,
-        deviceId: getDeviceId()
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(report)
     });
 
     if (response.ok) {
-      const sharedReport = await response.json();
-      
-      // Also store locally for offline capability
-      storeReportLocally(sharedReport);
-      
-      return sharedReport;
+      return await response.json();
     } else {
-      throw new Error('Failed to submit to shared service');
+      throw new Error(`Failed to submit: ${response.status}`);
     }
   } catch (error) {
-    console.warn('Shared service unavailable, storing locally:', error);
-    
-    // Fallback to local storage
-    const localReport = {
-      ...report,
-      id: generateId(),
-      timestamp: Date.now(),
-      deviceId: getDeviceId(),
-      localOnly: true
-    };
-    
-    storeReportLocally(localReport);
-    return localReport;
+    console.error('Error submitting report:', error);
+    throw error;
   }
 };
 
-// Get reports from shared service
-export const getTrafficReportsForRoute = async (currentRoute) => {
+export const getTrafficReportsForRoute = async (currentRoute, since = null) => {
   try {
-    // Try to get from shared service first
-    const response = await fetch(
-      `${API_BASE}/traffic-reports?start=${encodeURIComponent(currentRoute.start)}&end=${encodeURIComponent(currentRoute.end)}`
-    );
+    let url = `${API_BASE}/traffic-reports?start=${encodeURIComponent(currentRoute.start)}&end=${encodeURIComponent(currentRoute.end)}`;
+    
+    if (since) {
+      url += `&since=${since}`;
+    }
 
+    const response = await fetch(url);
+    
     if (response.ok) {
-      const sharedReports = await response.json();
-      
-      // Also get local reports
-      const localReports = getLocalReportsForRoute(currentRoute);
-      
-      // Combine and deduplicate
-      const allReports = [...sharedReports, ...localReports];
-      const uniqueReports = deduplicateReports(allReports);
-      
-      return uniqueReports;
+      const reports = await response.json();
+      lastFetchTime = Date.now();
+      return Array.isArray(reports) ? reports : [];
     } else {
-      throw new Error('Failed to fetch from shared service');
+      console.warn('Failed to fetch reports:', response.status);
+      return [];
     }
   } catch (error) {
-    console.warn('Shared service unavailable, using local reports:', error);
-    
-    // Fallback to local storage
-    return getLocalReportsForRoute(currentRoute);
-  }
-};
-
-// Local storage fallback functions
-const storeReportLocally = (report) => {
-  const reports = getStoredReports();
-  reports.push(report);
-  localStorage.setItem(TRAFFIC_REPORTS_KEY, JSON.stringify(reports));
-};
-
-const getLocalReportsForRoute = (currentRoute) => {
-  const reports = getStoredReports();
-  const now = Date.now();
-  
-  return reports.filter(report => {
-    // Filter expired reports
-    if (now - report.timestamp > REPORT_TTL) return false;
-    
-    // Check if report is relevant to current route
-    return isReportOnRoute(report, currentRoute);
-  });
-};
-
-const getStoredReports = () => {
-  try {
-    return JSON.parse(localStorage.getItem(TRAFFIC_REPORTS_KEY)) || [];
-  } catch {
+    console.error('Error fetching reports:', error);
     return [];
   }
 };
 
-const deduplicateReports = (reports) => {
-  const seen = new Set();
-  return reports.filter(report => {
-    const key = `${report.location.lat}-${report.location.lon}-${report.type}-${report.timestamp}`;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-};
-
-const generateId = () => {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-};
-
-const getDeviceId = () => {
-  let deviceId = localStorage.getItem('butterfly_nav_device_id');
-  if (!deviceId) {
-    deviceId = generateId();
-    localStorage.setItem('butterfly_nav_device_id', deviceId);
-  }
-  return deviceId;
-};
-
-// Keep the existing isReportOnRoute function
-const isReportOnRoute = (report, route) => {
-  const reportLat = report.location.lat;
-  const reportLon = report.location.lon;
-  
-  const [startLat, startLon] = route.start.split(',').map(Number);
-  const [endLat, endLon] = route.end.split(',').map(Number);
-  
-  const minLat = Math.min(startLat, endLat);
-  const maxLat = Math.max(startLat, endLat);
-  const minLon = Math.min(startLon, endLon);
-  const maxLon = Math.max(startLon, endLon);
-  
-  const padding = 0.1;
-  return reportLat >= (minLat - padding) && 
-         reportLat <= (maxLat + padding) && 
-         reportLon >= (minLon - padding) && 
-         reportLon <= (maxLon + padding);
+// Get only new reports since last check
+export const getNewTrafficReports = async (currentRoute) => {
+  return await getTrafficReportsForRoute(currentRoute, lastFetchTime);
 };
 
 export default {
   submitTrafficReport,
   getTrafficReportsForRoute,
+  getNewTrafficReports,
   TrafficEventTypes
 };
