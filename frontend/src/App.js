@@ -172,7 +172,31 @@ function App() {
         'las vegas': '36.1699,-115.1398',
         'portland': '45.5152,-122.6784',
         'san diego': '32.7157,-117.1611',
-        'tampa': '27.9506,-82.4572'
+        'tampa': '27.9506,-82.4572',
+        'dubai': '25.2048,55.2708',
+        'abu dhabi': '24.4539,54.3773',
+        'sharjah': '25.3463,55.4209',
+        'ajman': '25.4052,55.5136',
+        'al ain': '24.1302,55.8023',
+        'ras al khaimah': '25.7895,55.9432',
+        'fujairah': '25.1288,56.3265',
+        'umm al quwain': '25.5653,55.5533',
+        'delhi': '28.6139,77.2090',
+        'new delhi': '28.6139,77.2090',
+        'mumbai': '19.0760,72.8777',
+        'bombay': '19.0760,72.8777',
+        'bangalore': '12.9716,77.5946',
+        'bengaluru': '12.9716,77.5946',
+        'chennai': '13.0827,80.2707',
+        'madras': '13.0827,80.2707',
+        'kolkata': '22.5726,88.3639',
+        'calcutta': '22.5726,88.3639',
+        'hyderabad': '17.3850,78.4867',
+        'pune': '18.5204,73.8567',
+        'ahmedabad': '23.0225,72.5714',
+        'jaipur': '26.9124,75.7873',
+        'surat': '21.1702,72.8311',
+        'lucknow': '26.8467,80.9462'
     };
 
     // Helper function to add marker to map
@@ -750,40 +774,68 @@ function App() {
             const startLower = startLocation.toLowerCase();
             const endLower = endLocation.toLowerCase();
             
+            // Use fallback coordinates if available and skip ALL TomTom API calls
             if (fallbackCoordinates[startLower] && fallbackCoordinates[endLower]) {
                 startCoords = fallbackCoordinates[startLower];
                 endCoords = fallbackCoordinates[endLower];
-                console.log('Using fallback coordinates to avoid API limits');
-            } else {
-                // Try to get suggestions from API with error handling
-                let startResults = [], endResults = [];
-
-                try {
-                    startResults = await getSuggestions(startLocation);
-                } catch (error) {
-                    console.error('Error fetching start location:', error);
-                }
+                console.log('✅ Using fallback coordinates only - skipping TomTom API');
                 
-                try {
-                    endResults = await getSuggestions(endLocation);
-                } catch (error) {
-                    console.error('Error fetching end location:', error);
-                }
+                // Store coordinates in refs immediately
+                startCoordsRef.current = startCoords;
+                endCoordsRef.current = endCoords;
 
-                // Use API results if available, otherwise try fallback
-                if (startResults && startResults.length > 0) {
-                    const startSuggestion = startResults[0];
-                    startCoords = `${startSuggestion.position.lat},${startSuggestion.position.lon}`;
-                } else if (fallbackCoordinates[startLower]) {
-                    startCoords = fallbackCoordinates[startLower];
-                }
+                // Update state and add markers
+                setStart(startCoords);
+                setEnd(endCoords);
+
+                // Add markers to map using fallback coordinates only
+                await addMarkerToMap(startCoords, true);
+                await addMarkerToMap(endCoords, false);
+
+                // Wait a bit for state to update, then trigger route ONCE with fallback coordinates
+                setTimeout(() => {
+                    handleRouteFetchWithCoords(startCoords, endCoords);
+                    setVoiceStatus('success');
+                    setTimeout(() => {
+                        setVoiceStatus('ready');
+                        setVoiceCommand('');
+                    }, 3000);
+                }, 500);
                 
-                if (endResults && endResults.length > 0) {
-                    const endSuggestion = endResults[0];
-                    endCoords = `${endSuggestion.position.lat},${endSuggestion.position.lon}`;
-                } else if (fallbackCoordinates[endLower]) {
-                    endCoords = fallbackCoordinates[endLower];
-                }
+                return; // EXIT EARLY - no TomTom API calls at all!
+            }
+
+            // ONLY if we don't have fallback coordinates, then use TomTom API
+            console.log('🔄 Fallback coordinates not available, using TomTom API');
+            
+            // Try to get suggestions from API with error handling
+            let startResults = [], endResults = [];
+
+            try {
+                startResults = await getSuggestions(startLocation);
+            } catch (error) {
+                console.error('Error fetching start location:', error);
+            }
+            
+            try {
+                endResults = await getSuggestions(endLocation);
+            } catch (error) {
+                console.error('Error fetching end location:', error);
+            }
+
+            // Use API results if available, otherwise try fallback
+            if (startResults && startResults.length > 0) {
+                const startSuggestion = startResults[0];
+                startCoords = `${startSuggestion.position.lat},${startSuggestion.position.lon}`;
+            } else if (fallbackCoordinates[startLower]) {
+                startCoords = fallbackCoordinates[startLower];
+            }
+            
+            if (endResults && endResults.length > 0) {
+                const endSuggestion = endResults[0];
+                endCoords = `${endSuggestion.position.lat},${endSuggestion.position.lon}`;
+            } else if (fallbackCoordinates[endLower]) {
+                endCoords = fallbackCoordinates[endLower];
             }
 
             // Check if we have valid coordinates
@@ -1113,7 +1165,6 @@ function App() {
     };
 
     const handleSuggestionClick = async (suggestion, setInput, setSuggestions, markerRef, isStart) => {
-        // Add this check at the beginning
         if (isRoutingRef.current) {
             console.log('Route request in progress, skipping suggestion click');
             return;
@@ -1179,6 +1230,18 @@ function App() {
                 currentMap.removeLayer(markerRef.current);
             }
             markerRef.current = marker;
+
+            // If both start and end are set, trigger route immediately
+            const currentStart = isStart ? coordinates : start;
+            const currentEnd = isStart ? end : coordinates;
+            
+            if (currentStart && currentEnd) {
+                // Small delay to ensure state is updated
+                setTimeout(() => {
+                    handleRouteFetchWithCoords(currentStart, currentEnd);
+                }, 100);
+            }
+
         } catch (error) {
             console.error('Error creating marker:', error);
         }
