@@ -1936,38 +1936,81 @@
   line-height: 1.3 !important;
 }
 
-/* Simple consistent border matching your theme */
-.leaflet-popup-content-wrapper {
-  background: #1F1B24 !important;
-  color: #ffffff !important;
-  border: 1px solid #3d3d3d !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
-}
-
-.leaflet-popup-tip {
-  background: #3d3d3d !important;
-  border: 1px solid #3d3d3d !important;
-}
-
-/* Softer dark theme borders */
 .leaflet-popup-content-wrapper {
   background: #1F1B24 !important;
   background-color: #1F1B24 !important;
   color: #ffffff !important;
-  border: 1px solid #3d3d3d !important;
+  border: 1px solid #2d2d2d !important;
   border-radius: 8px !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: none !important; /* Remove shadow completely */
   padding: 0 !important;
 }
 
 .leaflet-popup-tip {
-  background: #3d3d3d !important;
-  border: 1px solid #3d3d3d !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  background: #1F1B24 !important; /* Match the popup background */
+  border: 1px solid #2d2d2d !important; /* Match the border */
+  box-shadow: none !important; /* Remove shadow from tip too */
 }
 
+.leaflet-popup {
+  margin-bottom: 0 !important; /* Remove default spacing that creates gap */
+}
+
+.leaflet-popup-content {
+  color: #ffffff !important;
+  margin: 12px !important;
+  font-family: inherit !important;
+  font-size: 0.9rem !important;
+  line-height: 1.4 !important;
+  background: transparent !important;
+}
+
+.leaflet-popup-close-button {
+  color: #ffffff !important;
+  background: transparent !important;
+  border: none !important;
+  font-size: 16px !important;
+  padding: 4px 8px 0 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #a0a0a0 !important;
+  background: transparent !important;
+}
+
+/* Make sure tip connects seamlessly */
 .leaflet-container .leaflet-popup-tip {
-  border: 1px solid #3d3d3d !important;
-  background: #3d3d3d !important;
+  border: 1px solid #2d2d2d !important;
+  background: #1F1B24 !important;
+}
+
+/* Custom popup content styles */
+.location-popup, 
+.traffic-popup, 
+.temp-marker-popup {
+  background: transparent !important;
+  color: #ffffff !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.location-popup h6, 
+.traffic-popup h6, 
+.temp-marker-popup h6 {
+  color: #4dabf7 !important;
+  margin: 0 0 8px 0 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+.location-popup p, 
+.traffic-popup p, 
+.temp-marker-popup p {
+  color: #a0a0a0 !important;
+  margin: 4px 0 !important;
+  font-size: 12px !important;
+  line-height: 1.3 !important;
 }

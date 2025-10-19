@@ -4,43 +4,32 @@ const API_BASE = '/.netlify/functions';
 const reports = new Map();
 
 export const handler = async (event) => {
-  const { httpMethod, body } = event;
+  const { httpMethod, body, queryStringParameters } = event;
 
-  // Enable CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE'
   };
 
   if (httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers,
-      body: ''
-    };
+    return { statusCode: 200, headers, body: '' };
   }
 
   if (httpMethod === 'POST') {
     try {
       const report = JSON.parse(body);
-      const id = Date.now().toString();
+      const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
       
       const reportWithId = {
         ...report,
         id,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        expiresAt: Date.now() + (2 * 60 * 60 * 1000) // 2 hours from now
       };
 
       reports.set(id, reportWithId);
-
-      // Clean up old reports (older than 2 hours)
-      const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
-      for (let [key, value] of reports.entries()) {
-        if (value.timestamp < twoHoursAgo) {
-          reports.delete(key);
-        }
-      }
+      console.log('New report submitted:', reportWithId);
 
       return {
         statusCode: 200,
@@ -48,55 +37,67 @@ export const handler = async (event) => {
         body: JSON.stringify(reportWithId)
       };
     } catch (error) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: error.message })
-      };
+      return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
     }
   }
 
   if (httpMethod === 'GET') {
-    const { start, end } = event.queryStringParameters || {};
+    const { start, end, since } = queryStringParameters || {};
     
-    if (!start || !end) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: 'Start and end parameters required' })
-      };
-    }
-
     try {
+      const now = Date.now();
       const allReports = Array.from(reports.values());
       
-      // Filter reports for the current route
-      const routeReports = allReports.filter(report => 
-        isReportOnRoute(report, { start, end })
-      );
+      // Clean up expired reports
+      const validReports = allReports.filter(report => report.expiresAt > now);
+      validReports.forEach(report => reports.set(report.id, report));
+      
+      // If since timestamp provided, return only recent reports
+      if (since) {
+        const sinceTime = parseInt(since);
+        const recentReports = validReports.filter(report => report.timestamp > sinceTime);
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify(recentReports)
+        };
+      }
+      
+      // Filter by route if start/end provided
+      if (start && end) {
+        const routeReports = validReports.filter(report => 
+          isReportOnRoute(report, { start, end })
+        );
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify(routeReports)
+        };
+      }
 
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(routeReports)
-      };
+      return { statusCode: 200, headers, body: JSON.stringify(validReports) };
     } catch (error) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: error.message })
-      };
+      return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
     }
   }
 
-  return {
-    statusCode: 405,
-    headers,
-    body: JSON.stringify({ error: 'Method not allowed' })
-  };
+  if (httpMethod === 'DELETE') {
+    // Optional: Add cleanup endpoint
+    const now = Date.now();
+    for (let [key, report] of reports.entries()) {
+      if (report.expiresAt <= now) {
+        reports.delete(key);
+      }
+    }
+    return { statusCode: 200, headers, body: JSON.stringify({ cleaned: true }) };
+  }
+
+  return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 };
 
 function isReportOnRoute(report, route) {
+  if (!report.location) return false;
+  
   const reportLat = report.location.lat;
   const reportLon = report.location.lon;
   
