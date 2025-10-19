@@ -8,7 +8,6 @@ import {
 import { 
   submitTrafficReport, 
   getTrafficReportsForRoute, 
-  getNewTrafficReports,  // Add this
   TrafficEventTypes 
 } from './trafficService';
 import L from 'leaflet';
