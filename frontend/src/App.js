@@ -811,72 +811,85 @@ function App() {
 
             let startCoords, endCoords;
 
-            // Check if we have fallback coordinates first
+            // Check if we have fallback coordinates for EACH location individually
             const startLower = startLocation.toLowerCase();
             const endLower = endLocation.toLowerCase();
             
-            // Use fallback coordinates if available and skip ALL TomTom API calls
-            if (fallbackCoordinates[startLower] && fallbackCoordinates[endLower]) {
-                startCoords = fallbackCoordinates[startLower];
-                endCoords = fallbackCoordinates[endLower];
-                console.log('✅ Using fallback coordinates only - skipping TomTom API');
+            // Use fallback coordinates if available for EACH location
+            const hasStartFallback = fallbackCoordinates[startLower];
+            const hasEndFallback = fallbackCoordinates[endLower];
+            
+            console.log('🔍 Checking fallback coordinates:');
+            console.log('   Start:', startLocation, '-> Fallback:', hasStartFallback ? 'YES' : 'NO');
+            console.log('   End:', endLocation, '-> Fallback:', hasEndFallback ? 'YES' : 'NO');
+
+            if (hasStartFallback || hasEndFallback) {
+                console.log('✅ Using fallback coordinates where available - skipping TomTom API for fallback locations');
                 
-                // Store coordinates in refs immediately
-                startCoordsRef.current = startCoords;
-                endCoordsRef.current = endCoords;
-
-                // Update state and add markers
-                setStart(startCoords);
-                setEnd(endCoords);
-
-                // Add markers to map using fallback coordinates only
-                await addMarkerToMap(startCoords, true);
-                await addMarkerToMap(endCoords, false);
-
-                // Wait a bit for state to update, then trigger route ONCE with fallback coordinates
-                setTimeout(() => {
-                    handleRouteFetchWithCoords(startCoords, endCoords);
-                    setVoiceStatus('success');
-                    setTimeout(() => {
-                        setVoiceStatus('ready');
-                        setVoiceCommand('');
-                    }, 3000);
-                }, 500);
+                // Use fallback for start if available
+                if (hasStartFallback) {
+                    startCoords = fallbackCoordinates[startLower];
+                    console.log('   Using fallback for start:', startCoords);
+                }
                 
-                return; // EXIT EARLY - no TomTom API calls at all!
-            }
+                // Use fallback for end if available  
+                if (hasEndFallback) {
+                    endCoords = fallbackCoordinates[endLower];
+                    console.log('   Using fallback for end:', endCoords);
+                }
+                
+                // For locations without fallback, use TomTom API
+                if (!hasStartFallback) {
+                    console.log('🔄 No fallback for start, using TomTom API for:', startLocation);
+                    try {
+                        const startResults = await getSuggestions(startLocation);
+                        if (startResults && startResults.length > 0) {
+                            startCoords = `${startResults[0].position.lat},${startResults[0].position.lon}`;
+                            console.log('   TomTom start result:', startCoords);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching start location:', error);
+                    }
+                }
+                
+                if (!hasEndFallback) {
+                    console.log('🔄 No fallback for end, using TomTom API for:', endLocation);
+                    try {
+                        const endResults = await getSuggestions(endLocation);
+                        if (endResults && endResults.length > 0) {
+                            endCoords = `${endResults[0].position.lat},${endResults[0].position.lon}`;
+                            console.log('   TomTom end result:', endCoords);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching end location:', error);
+                    }
+                }
+            } else {
+                // If no fallback coordinates at all, use TomTom API for both
+                console.log('🔄 No fallback coordinates available, using TomTom API for both locations');
+                
+                let startResults = [], endResults = [];
+                try {
+                    startResults = await getSuggestions(startLocation);
+                } catch (error) {
+                    console.error('Error fetching start location:', error);
+                }
+                
+                try {
+                    endResults = await getSuggestions(endLocation);
+                } catch (error) {
+                    console.error('Error fetching end location:', error);
+                }
 
-            // ONLY if we don't have fallback coordinates, then use TomTom API
-            console.log('🔄 Fallback coordinates not available, using TomTom API');
-            
-            // Try to get suggestions from API with error handling
-            let startResults = [], endResults = [];
-
-            try {
-                startResults = await getSuggestions(startLocation);
-            } catch (error) {
-                console.error('Error fetching start location:', error);
-            }
-            
-            try {
-                endResults = await getSuggestions(endLocation);
-            } catch (error) {
-                console.error('Error fetching end location:', error);
-            }
-
-            // Use API results if available, otherwise try fallback
-            if (startResults && startResults.length > 0) {
-                const startSuggestion = startResults[0];
-                startCoords = `${startSuggestion.position.lat},${startSuggestion.position.lon}`;
-            } else if (fallbackCoordinates[startLower]) {
-                startCoords = fallbackCoordinates[startLower];
-            }
-            
-            if (endResults && endResults.length > 0) {
-                const endSuggestion = endResults[0];
-                endCoords = `${endSuggestion.position.lat},${endSuggestion.position.lon}`;
-            } else if (fallbackCoordinates[endLower]) {
-                endCoords = fallbackCoordinates[endLower];
+                if (startResults && startResults.length > 0) {
+                    const startSuggestion = startResults[0];
+                    startCoords = `${startSuggestion.position.lat},${startSuggestion.position.lon}`;
+                }
+                
+                if (endResults && endResults.length > 0) {
+                    const endSuggestion = endResults[0];
+                    endCoords = `${endSuggestion.position.lat},${endSuggestion.position.lon}`;
+                }
             }
 
             // Check if we have valid coordinates
