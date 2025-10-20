@@ -173,27 +173,55 @@ function App() {
         'portland': '45.5152,-122.6784',
         'san diego': '32.7157,-117.1611',
         'tampa': '27.9506,-82.4572',
-        // UAE Cities - Updated with more precise coordinates
+        // UAE Cities - Comprehensive list
         'dubai': '25.2048,55.2708',
         'dubai city': '25.2048,55.2708',
         'dxb': '25.2048,55.2708',
+        'dubai uae': '25.2048,55.2708',
+        
         'abu dhabi': '24.4539,54.3773',
         'abu dhabi city': '24.4539,54.3773',
-        'sharjah': '25.3575,55.3919', // More central location
+        'abudhabi': '24.4539,54.3773',
+        'abu dhabi uae': '24.4539,54.3773',
+        
+        'sharjah': '25.3575,55.3919',
         'sharjah city': '25.3575,55.3919',
-        'ajman': '25.4112,55.4350', // Updated to more central Ajman
+        'sharjah uae': '25.3575,55.3919',
+        'sharja': '25.3575,55.3919', // Common misspelling
+        
+        'ajman': '25.4112,55.4350',
         'ajman city': '25.4112,55.4350',
+        'ajman uae': '25.4112,55.4350',
+        'ajman emirate': '25.4112,55.4350',
+        
         'al ain': '24.1302,55.8023',
+        'al ain city': '24.1302,55.8023',
+        'al ain uae': '24.1302,55.8023',
+        'alain': '24.1302,55.8023', // No space
+        
         'ras al khaimah': '25.7895,55.9432',
+        'ras al khaimah city': '25.7895,55.9432',
+        'ras al khaimah uae': '25.7895,55.9432',
+        'rak': '25.7895,55.9432', // Abbreviation
+        
         'fujairah': '25.1288,56.3265',
+        'fujairah city': '25.1288,56.3265',
+        'fujairah uae': '25.1288,56.3265',
+        
         'umm al quwain': '25.5653,55.5533',
-        // UAE Landmarks for better routing
+        'umm al quwain city': '25.5653,55.5533',
+        'umm al quwain uae': '25.5653,55.5533',
+        'uae': '24.4539,54.3773', // Default to Abu Dhabi
+        
+        // UAE Landmarks
         'burj khalifa': '25.1972,55.2744',
         'dubai mall': '25.1975,55.2792',
         'palm jumeirah': '25.1124,55.1380',
         'jebel ali': '24.9854,55.0273',
         'deira': '25.2667,55.3167',
         'bur dubai': '25.2500,55.3000',
+        'mirdif': '25.2205,55.4121',
+        'jumeirah': '25.2000,55.2333',
         'delhi': '28.6139,77.2090',
         'new delhi': '28.6139,77.2090',
         'mumbai': '19.0760,72.8777',
@@ -781,81 +809,35 @@ function App() {
                 return;
             }
 
+            // Normalize location names
+            const startLower = startLocation.toLowerCase().trim();
+            const endLower = endLocation.toLowerCase().trim();
+            
+            console.log('🔍 Voice command received:', startLower, 'to', endLower);
+            console.log('📋 Available fallback cities:', Object.keys(fallbackCoordinates));
+
             let startCoords, endCoords;
 
-            // Check if we have fallback coordinates first
-            const startLower = startLocation.toLowerCase();
-            const endLower = endLocation.toLowerCase();
-            
-            // Use fallback coordinates if available and skip ALL TomTom API calls
-            if (fallbackCoordinates[startLower] && fallbackCoordinates[endLower]) {
+            // FORCE use of fallback coordinates if available - don't even check TomTom
+            if (fallbackCoordinates[startLower]) {
                 startCoords = fallbackCoordinates[startLower];
-                endCoords = fallbackCoordinates[endLower];
-                console.log('✅ Using fallback coordinates only - skipping TomTom API');
-                
-                // Store coordinates in refs immediately
-                startCoordsRef.current = startCoords;
-                endCoordsRef.current = endCoords;
-
-                // Update state and add markers
-                setStart(startCoords);
-                setEnd(endCoords);
-
-                // Add markers to map using fallback coordinates only
-                await addMarkerToMap(startCoords, true);
-                await addMarkerToMap(endCoords, false);
-
-                // Wait a bit for state to update, then trigger route ONCE with fallback coordinates
-                setTimeout(() => {
-                    handleRouteFetchWithCoords(startCoords, endCoords);
-                    setVoiceStatus('success');
-                    setTimeout(() => {
-                        setVoiceStatus('ready');
-                        setVoiceCommand('');
-                    }, 3000);
-                }, 500);
-                
-                return; // EXIT EARLY - no TomTom API calls at all!
-            }
-
-            // ONLY if we don't have fallback coordinates, then use TomTom API
-            console.log('🔄 Fallback coordinates not available, using TomTom API');
-            
-            // Try to get suggestions from API with error handling
-            let startResults = [], endResults = [];
-
-            try {
-                startResults = await getSuggestions(startLocation);
-            } catch (error) {
-                console.error('Error fetching start location:', error);
-            }
-            
-            try {
-                endResults = await getSuggestions(endLocation);
-            } catch (error) {
-                console.error('Error fetching end location:', error);
-            }
-
-            // Use API results if available, otherwise try fallback
-            if (startResults && startResults.length > 0) {
-                const startSuggestion = startResults[0];
-                startCoords = `${startSuggestion.position.lat},${startSuggestion.position.lon}`;
-            } else if (fallbackCoordinates[startLower]) {
-                startCoords = fallbackCoordinates[startLower];
-            }
-            
-            if (endResults && endResults.length > 0) {
-                const endSuggestion = endResults[0];
-                endCoords = `${endSuggestion.position.lat},${endSuggestion.position.lon}`;
-            } else if (fallbackCoordinates[endLower]) {
-                endCoords = fallbackCoordinates[endLower];
-            }
-
-            // Check if we have valid coordinates
-            if (!startCoords || !endCoords) {
+                console.log('✅ Using fallback for start:', startLower, '=', startCoords);
+            } else {
+                console.log('❌ No fallback for start:', startLower);
                 setVoiceStatus('error');
-                setVoiceCommand('Could not find locations. Please try different names or use manual input.');
-                setTimeout(() => setVoiceStatus('ready'), 3000);
+                setVoiceCommand(`Location "${startLocation}" not recognized. Please try major cities like Dubai, Sharjah, etc.`);
+                setTimeout(() => setVoiceStatus('ready'), 4000);
+                return;
+            }
+
+            if (fallbackCoordinates[endLower]) {
+                endCoords = fallbackCoordinates[endLower];
+                console.log('✅ Using fallback for end:', endLower, '=', endCoords);
+            } else {
+                console.log('❌ No fallback for end:', endLower);
+                setVoiceStatus('error');
+                setVoiceCommand(`Location "${endLocation}" not recognized. Please try major cities like Dubai, Sharjah, etc.`);
+                setTimeout(() => setVoiceStatus('ready'), 4000);
                 return;
             }
 
@@ -867,20 +849,21 @@ function App() {
             setStart(startCoords);
             setEnd(endCoords);
 
-            // Add markers to map
+            // Add markers to map using fallback coordinates only
             await addMarkerToMap(startCoords, true);
             await addMarkerToMap(endCoords, false);
 
-            // Wait a bit for state to update, then trigger route ONCE
+            // Wait a bit for state to update, then trigger route ONCE with fallback coordinates
             setTimeout(() => {
                 handleRouteFetchWithCoords(startCoords, endCoords);
                 setVoiceStatus('success');
+                setVoiceCommand(`Route from ${startLocation} to ${endLocation}`);
                 setTimeout(() => {
                     setVoiceStatus('ready');
                     setVoiceCommand('');
                 }, 3000);
             }, 500);
-
+            
         } catch (error) {
             console.error('Error processing voice command:', error);
             setVoiceStatus('error');
