@@ -173,7 +173,7 @@ function App() {
         'portland': '45.5152,-122.6784',
         'san diego': '32.7157,-117.1611',
         'tampa': '27.9506,-82.4572',
-        // UAE Cities - Comprehensive list
+    // UAE Cities - Comprehensive list
         'dubai': '25.2048,55.2708',
         'dubai city': '25.2048,55.2708',
         'dxb': '25.2048,55.2708',
@@ -809,35 +809,81 @@ function App() {
                 return;
             }
 
-            // Normalize location names
-            const startLower = startLocation.toLowerCase().trim();
-            const endLower = endLocation.toLowerCase().trim();
-            
-            console.log('🔍 Voice command received:', startLower, 'to', endLower);
-            console.log('📋 Available fallback cities:', Object.keys(fallbackCoordinates));
-
             let startCoords, endCoords;
 
-            // FORCE use of fallback coordinates if available - don't even check TomTom
-            if (fallbackCoordinates[startLower]) {
+            // Check if we have fallback coordinates first
+            const startLower = startLocation.toLowerCase();
+            const endLower = endLocation.toLowerCase();
+            
+            // Use fallback coordinates if available and skip ALL TomTom API calls
+            if (fallbackCoordinates[startLower] && fallbackCoordinates[endLower]) {
                 startCoords = fallbackCoordinates[startLower];
-                console.log('✅ Using fallback for start:', startLower, '=', startCoords);
-            } else {
-                console.log('❌ No fallback for start:', startLower);
-                setVoiceStatus('error');
-                setVoiceCommand(`Location "${startLocation}" not recognized. Please try major cities like Dubai, Sharjah, etc.`);
-                setTimeout(() => setVoiceStatus('ready'), 4000);
-                return;
+                endCoords = fallbackCoordinates[endLower];
+                console.log('✅ Using fallback coordinates only - skipping TomTom API');
+                
+                // Store coordinates in refs immediately
+                startCoordsRef.current = startCoords;
+                endCoordsRef.current = endCoords;
+
+                // Update state and add markers
+                setStart(startCoords);
+                setEnd(endCoords);
+
+                // Add markers to map using fallback coordinates only
+                await addMarkerToMap(startCoords, true);
+                await addMarkerToMap(endCoords, false);
+
+                // Wait a bit for state to update, then trigger route ONCE with fallback coordinates
+                setTimeout(() => {
+                    handleRouteFetchWithCoords(startCoords, endCoords);
+                    setVoiceStatus('success');
+                    setTimeout(() => {
+                        setVoiceStatus('ready');
+                        setVoiceCommand('');
+                    }, 3000);
+                }, 500);
+                
+                return; // EXIT EARLY - no TomTom API calls at all!
             }
 
-            if (fallbackCoordinates[endLower]) {
+            // ONLY if we don't have fallback coordinates, then use TomTom API
+            console.log('🔄 Fallback coordinates not available, using TomTom API');
+            
+            // Try to get suggestions from API with error handling
+            let startResults = [], endResults = [];
+
+            try {
+                startResults = await getSuggestions(startLocation);
+            } catch (error) {
+                console.error('Error fetching start location:', error);
+            }
+            
+            try {
+                endResults = await getSuggestions(endLocation);
+            } catch (error) {
+                console.error('Error fetching end location:', error);
+            }
+
+            // Use API results if available, otherwise try fallback
+            if (startResults && startResults.length > 0) {
+                const startSuggestion = startResults[0];
+                startCoords = `${startSuggestion.position.lat},${startSuggestion.position.lon}`;
+            } else if (fallbackCoordinates[startLower]) {
+                startCoords = fallbackCoordinates[startLower];
+            }
+            
+            if (endResults && endResults.length > 0) {
+                const endSuggestion = endResults[0];
+                endCoords = `${endSuggestion.position.lat},${endSuggestion.position.lon}`;
+            } else if (fallbackCoordinates[endLower]) {
                 endCoords = fallbackCoordinates[endLower];
-                console.log('✅ Using fallback for end:', endLower, '=', endCoords);
-            } else {
-                console.log('❌ No fallback for end:', endLower);
+            }
+
+            // Check if we have valid coordinates
+            if (!startCoords || !endCoords) {
                 setVoiceStatus('error');
-                setVoiceCommand(`Location "${endLocation}" not recognized. Please try major cities like Dubai, Sharjah, etc.`);
-                setTimeout(() => setVoiceStatus('ready'), 4000);
+                setVoiceCommand('Could not find locations. Please try different names or use manual input.');
+                setTimeout(() => setVoiceStatus('ready'), 3000);
                 return;
             }
 
@@ -849,21 +895,20 @@ function App() {
             setStart(startCoords);
             setEnd(endCoords);
 
-            // Add markers to map using fallback coordinates only
+            // Add markers to map
             await addMarkerToMap(startCoords, true);
             await addMarkerToMap(endCoords, false);
 
-            // Wait a bit for state to update, then trigger route ONCE with fallback coordinates
+            // Wait a bit for state to update, then trigger route ONCE
             setTimeout(() => {
                 handleRouteFetchWithCoords(startCoords, endCoords);
                 setVoiceStatus('success');
-                setVoiceCommand(`Route from ${startLocation} to ${endLocation}`);
                 setTimeout(() => {
                     setVoiceStatus('ready');
                     setVoiceCommand('');
                 }, 3000);
             }, 500);
-            
+
         } catch (error) {
             console.error('Error processing voice command:', error);
             setVoiceStatus('error');
